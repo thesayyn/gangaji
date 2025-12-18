@@ -1,7 +1,7 @@
 "Profile Bazel builds with gangaji"
 
 # Extension version - substituted by git archive
-GANGAJI_VERSION = "$Format:%(describe:tags=true,always)$"
+GANGAJI_VERSION = "$Format:%(describe:tags=true)$"
 
 def _is_unstamped(version):
     """Check if version is unstamped (still contains the git format placeholder)."""
