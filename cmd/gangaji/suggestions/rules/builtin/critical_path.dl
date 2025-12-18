@@ -1,0 +1,48 @@
+% Critical Path Detection Rules
+% Identifies bottlenecks on the build critical path (only actionable events)
+
+% Rule: Critical path bottleneck (>10% of build) - MUST FIX
+% Any action taking >10% of critical path is a serious bottleneck that needs attention
+rule critical_path_bottleneck_high {
+    when:
+        critical_path_end(?E, ?Name, ?Dur, ?Target),
+        critical_path_percent(?Pct),
+        ?Pct > 10.
+    then:
+        suggestion(warning, high,
+            "MUST FIX: Critical path bottleneck {Target}",
+            "This action takes {Pct}% of total build time and blocks other work from being scheduled. This is a critical bottleneck - optimizing or parallelizing this action will directly reduce build time.",
+            ?Target,
+            [["Action", ?Name], ["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"], ["Position", "End of critical path"]]).
+}
+
+% Rule: Critical path action (>5% of build)
+rule critical_path_bottleneck_medium {
+    when:
+        critical_path_end(?E, ?Name, ?Dur, ?Target),
+        critical_path_percent(?Pct),
+        ?Pct > 5,
+        ?Pct <= 10.
+    then:
+        suggestion(info, medium,
+            "Critical path action: {Target}",
+            "This action is on the critical path taking {Pct}% of build time. Consider if this action can be optimized or broken into smaller parallel parts.",
+            ?Target,
+            [["Action", ?Name], ["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Long build with identifiable bottleneck
+rule long_build_bottleneck {
+    when:
+        total_duration(?Total),
+        ?Total > 60000000,
+        critical_path_end(?E, ?Name, ?Dur, ?Target),
+        critical_path_percent(?Pct),
+        ?Pct > 5.
+    then:
+        suggestion(info, medium,
+            "Long build with bottleneck: {Target}",
+            "Build takes over 1 minute with this target on critical path. Focus optimization efforts here for maximum impact.",
+            ?Target,
+            [["Build Time", format_time(?Total)], ["Bottleneck", "{Pct}%"]]).
+}

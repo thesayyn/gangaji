@@ -1,0 +1,55 @@
+% Long Tail Detection Rules
+% Identifies patterns of many small actions that indicate overhead
+% Uses actionable_count/actionable_time to focus on user-controlled work
+
+% Rule: Many small actionable events
+rule many_small_actions {
+    when:
+        actionable_count(?Count),
+        total_duration(?Total),
+        actionable_time(?ActionTime),
+        ?Count > 0,
+        ?AvgDur = ?ActionTime / ?Count,
+        ?Count > 100,
+        ?AvgDur < 1000.
+    then:
+        suggestion(info, medium,
+            "Many small actions detected",
+            "Build has {Count} actionable events with average duration under 1ms. This suggests high scheduling overhead. Consider coarser-grained targets.",
+            "{Count} actions",
+            [["Actionable Events", ?Count], ["Avg Duration", format_time(?AvgDur)]]).
+}
+
+% Rule: Good parallelism on actionable work
+rule high_overhead {
+    when:
+        total_duration(?Total),
+        actionable_time(?ActionTime),
+        actionable_count(?Count),
+        ?Count > 50,
+        ?Ratio = ?ActionTime / ?Total,
+        ?Ratio > 2.
+    then:
+        suggestion(info, low,
+            "High action parallelism",
+            "Total actionable time is {Ratio}x wall clock time, indicating good parallelization with {Count} user-controlled actions running concurrently.",
+            "Build performance",
+            [["Wall Clock", format_time(?Total)], ["Actionable Time", format_time(?ActionTime)], ["Actionable Events", ?Count]]).
+}
+
+% Rule: Sequential build pattern (based on actionable work)
+rule sequential_build {
+    when:
+        total_duration(?Total),
+        actionable_time(?ActionTime),
+        actionable_count(?Count),
+        ?Count > 20,
+        ?Ratio = ?ActionTime / ?Total,
+        ?Ratio < 1.2.
+    then:
+        suggestion(warning, medium,
+            "Build appears mostly sequential",
+            "Total actionable time is only {Ratio}x wall clock time despite {Count} user-controlled actions. Build dependencies may be too linear.",
+            "Build graph",
+            [["Wall Clock", format_time(?Total)], ["Actionable Time", format_time(?ActionTime)], ["Parallelism Ratio", "{Ratio}"]]).
+}

@@ -1,0 +1,3 @@
+"gangaji profile analyzer extension"
+
+use_task("profile.axl", "profile")

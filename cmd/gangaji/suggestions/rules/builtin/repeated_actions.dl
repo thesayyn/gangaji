@@ -1,0 +1,70 @@
+% Repeated Actions Detection Rules
+% Identifies many similar actions that could benefit from caching
+
+% Rule: Many CppCompile actions
+rule many_cpp_compile {
+    when:
+        mnemonic_count("CppCompile", ?Count),
+        mnemonic_time("CppCompile", ?Time),
+        total_duration(?Total),
+        ?Pct = (?Time * 100) / ?Total,
+        ?Count > 50,
+        ?Pct > 20.
+    then:
+        suggestion(info, high,
+            "Many C++ compilation actions",
+            "{Count} CppCompile actions taking {Pct}% of build. Consider using --remote_cache or Bazel's persistent workers to speed up compilation.",
+            "CppCompile",
+            [["Actions", ?Count], ["Total Time", format_time(?Time)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Many GoCompile actions
+rule many_go_compile {
+    when:
+        mnemonic_count("GoCompile", ?Count),
+        mnemonic_time("GoCompile", ?Time),
+        total_duration(?Total),
+        ?Pct = (?Time * 100) / ?Total,
+        ?Count > 30,
+        ?Pct > 15.
+    then:
+        suggestion(info, medium,
+            "Many Go compilation actions",
+            "{Count} GoCompile actions taking {Pct}% of build. Consider --remote_cache for faster incremental builds.",
+            "GoCompile",
+            [["Actions", ?Count], ["Total Time", format_time(?Time)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Many Java compile actions
+rule many_java_compile {
+    when:
+        mnemonic_count("Javac", ?Count),
+        mnemonic_time("Javac", ?Time),
+        total_duration(?Total),
+        ?Pct = (?Time * 100) / ?Total,
+        ?Count > 30,
+        ?Pct > 20.
+    then:
+        suggestion(info, medium,
+            "Many Java compilation actions",
+            "{Count} Javac actions taking {Pct}% of build. Consider using persistent workers or remote caching.",
+            "Javac",
+            [["Actions", ?Count], ["Total Time", format_time(?Time)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Many genrule actions
+rule many_genrules {
+    when:
+        mnemonic_count("Genrule", ?Count),
+        mnemonic_time("Genrule", ?Time),
+        total_duration(?Total),
+        ?Pct = (?Time * 100) / ?Total,
+        ?Count > 20,
+        ?Pct > 10.
+    then:
+        suggestion(info, medium,
+            "Many genrule actions",
+            "{Count} Genrule actions taking {Pct}% of build. Consider if these can be replaced with more specific rules or combined.",
+            "Genrule",
+            [["Actions", ?Count], ["Total Time", format_time(?Time)], ["% of Build", "{Pct}%"]]).
+}

@@ -1,0 +1,49 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load(":lib_defs.bzl", "cc_library_with_analysis", "generate_library_variants")
+
+exports_files([
+    "math.cc",
+    "math.h",
+    "strings.cc",
+    "strings.h",
+    "utils.cc",
+    "utils.h",
+])
+
+# Use heavy analysis wrapper
+cc_library_with_analysis(
+    name = "math",
+    srcs = ["math.cc"],
+    hdrs = ["math.h"],
+)
+
+cc_library_with_analysis(
+    name = "strings",
+    srcs = ["strings.cc"],
+    hdrs = ["strings.h"],
+)
+
+cc_library_with_analysis(
+    name = "utils",
+    srcs = ["utils.cc"],
+    hdrs = ["utils.h"],
+    deps = [
+        ":math",
+        ":strings",
+    ],
+)
+
+# Generate library variants with heavy computation
+generate_library_variants(
+    "math_variant",
+    srcs = ["math.cc"],
+    hdrs = ["math.h"],
+    count = 20,
+)
+
+generate_library_variants(
+    "strings_variant",
+    srcs = ["strings.cc"],
+    hdrs = ["strings.h"],
+    count = 20,
+)

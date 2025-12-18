@@ -1,0 +1,45 @@
+name: Create Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to create (e.g., v1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  tag:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      new-tag: ${{ steps.push_tag.outputs.new-tag }}
+    steps:
+      - name: Validate tag format
+        run: |
+          if [[ ! "${{ inputs.tag }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Tag must be in v0.0.0 format (e.g., v1.2.3)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - id: push_tag
+        run: |
+          curl --request POST \
+              --url https://api.github.com/repos/${{ github.repository }}/git/refs \
+              --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+              --data @- << EOF
+          {
+              "ref": "refs/tags/${{ inputs.tag }}",
+              "sha": "${{ github.sha }}"
+          }
+          EOF
+          echo "new-tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+
+  release:
+    needs: tag
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write

@@ -1,0 +1,126 @@
+"Profile Bazel builds with gangaji"
+
+# Extension version - updated during release
+GANGAJI_VERSION = "v0.0.1"
+
+def _get_platform(ctx):
+    """Determine the current platform for binary download."""
+    os = ctx.std.env.os()
+    arch = ctx.std.env.arch()
+
+    if os == "macos":
+        os = "darwin"
+    elif os == "windows":
+        os = "windows"
+    else:
+        os = "linux"
+
+    if arch == "x86_64":
+        arch = "amd64"
+    elif arch == "aarch64":
+        arch = "arm64"
+
+    return os, arch
+
+def _download_gangaji(ctx, version):
+    """Download gangaji binary from GitHub releases."""
+    os, arch = _get_platform(ctx)
+
+    ext = ".tar.gz"
+    if os == "windows":
+        ext = ".zip"
+
+    # Release tag has "v" prefix, but archive filename doesn't
+    version_no_v = version[1:] if version.startswith("v") else version
+
+    url = "https://github.com/thesayyn/gangaji/releases/download/{tag}/gangaji_{version}_{os}_{arch}{ext}".format(
+        tag = version,
+        version = version_no_v,
+        os = os,
+        arch = arch,
+        ext = ext,
+    )
+
+    home_dir = ctx.std.env.home_dir()
+    gangaji_dir = home_dir + "/.cache/gangaji/" + version
+    gangaji_bin = gangaji_dir + "/gangaji"
+    if os == "windows":
+        gangaji_bin = gangaji_bin + ".exe"
+
+    # Check if already downloaded
+    if ctx.std.fs.exists(gangaji_bin):
+        return gangaji_bin
+
+    ctx.std.fs.create_dir_all(gangaji_dir)
+
+    archive_path = gangaji_dir + "/gangaji" + ext
+
+    out = ctx.std.io.stdout
+    out.write("Downloading gangaji " + version + " from " + url + "\n")
+
+    # Download the archive
+    ctx.http().download(url = url, mode = 0o755, output = archive_path).block()
+
+    # Extract the archive
+    ctx.std.process.command("tar").args(["-xzf", archive_path, "-C", gangaji_dir]).spawn().wait()
+
+    # Clean up archive
+    ctx.std.fs.remove_file(archive_path)
+
+    return gangaji_bin
+
+def _profile_impl(ctx):
+    """Run Bazel with profiling and analyze with gangaji."""
+    out = ctx.std.io.stdout
+    err = ctx.std.io.stderr
+
+    # Get version from extension
+    version = GANGAJI_VERSION
+
+    # Determine profile output path
+    profile_path = ctx.std.env.current_dir() + "/bazel-profile.json.gz"
+
+    # Get targets from args (default to //...)
+    targets = list(ctx.args.targets) if ctx.args.targets else ["//..."]
+    extra_args = list(ctx.args.extra_args) if ctx.args.extra_args else []
+
+    # Build the bazel arguments - flags before targets
+    all_args = ["--profile", profile_path, "--generate_json_trace_profile"] + extra_args
+
+    out.write("Running: bazel build " + " ".join(all_args) + "\n\n")
+
+    # Run bazel with profiling
+    build = ctx.bazel.build(
+        flags = all_args,
+        *targets
+    )
+    result = build.wait()
+
+    if result != 0:
+        err.write("\nBazel command failed with exit code " + str(result) + "\n")
+        # Continue anyway to analyze partial profile if it exists
+
+    # Check if profile was generated
+    if not ctx.std.fs.exists(profile_path):
+        err.write("Error: Profile file was not generated at " + profile_path + "\n")
+        return 1
+
+    out.write("\nProfile saved to: " + profile_path + "\n")
+
+    # Download gangaji
+    gangaji_bin = _download_gangaji(ctx, version)
+
+    out.write("Opening profile with gangaji...\n\n")
+
+    # Run gangaji on the profile
+    exit_code = ctx.std.process.command(gangaji_bin, profile_path).status()
+
+    return exit_code
+
+profile = task(
+    implementation = _profile_impl,
+    args = {
+        "targets": args.positional(),
+        "extra_args": args.trailing_var_args(),
+    },
+)

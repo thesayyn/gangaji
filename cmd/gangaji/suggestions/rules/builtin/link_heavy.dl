@@ -1,0 +1,49 @@
+% Link Heavy Detection Rules
+% Identifies when linking dominates build time (only actionable events with targets)
+
+% Rule: Linking dominating build
+% Note: mnemonic_time now only counts actionable events with targets
+rule link_time_high {
+    when:
+        mnemonic_time("CppLink", ?LinkTime),
+        total_duration(?Total),
+        ?Pct = (?LinkTime * 100) / ?Total,
+        ?Pct > 20.
+    then:
+        suggestion(warning, high,
+            "Linking dominates build time",
+            "CppLink actions take {Pct}% of build time. Consider using --linkopt=-fuse-ld=lld or --linkopt=-fuse-ld=gold for faster linking.",
+            "CppLink",
+            [["Link Time", format_time(?LinkTime)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Slow individual link (only actionable events with targets)
+rule slow_link {
+    when:
+        trace_event(?E, ?Name, _, _, ?Dur),
+        trace_event_mnemonic(?E, "CppLink"),
+        is_actionable(?E),
+        trace_event_target(?E, ?Target),
+        event_percent(?E, ?Pct),
+        ?Pct > 10.
+    then:
+        suggestion(warning, medium,
+            "Slow link: {Target}",
+            "This link action takes {Pct}% of build. Consider dynamic linking during development or reducing dependencies.",
+            ?Target,
+            [["Action", ?Name], ["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Many link actions
+rule many_links {
+    when:
+        mnemonic_count("CppLink", ?Count),
+        mnemonic_time("CppLink", ?Time),
+        ?Count > 10.
+    then:
+        suggestion(info, low,
+            "Multiple link actions",
+            "{Count} link actions in build. Consider shared libraries or build caching to reduce link overhead.",
+            "CppLink",
+            [["Link Actions", ?Count], ["Total Link Time", format_time(?Time)]]).
+}

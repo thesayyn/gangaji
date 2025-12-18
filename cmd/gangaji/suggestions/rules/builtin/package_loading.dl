@@ -1,0 +1,48 @@
+% Package Loading Detection Rules
+% Identifies slow package and repository loading
+
+% Rule: Slow package loading
+rule slow_package_loading {
+    when:
+        category_time("package", ?PkgTime),
+        total_duration(?Total),
+        ?Pct = (?PkgTime * 100) / ?Total,
+        ?Pct > 10.
+    then:
+        suggestion(warning, medium,
+            "Slow package loading",
+            "Package loading takes {Pct}% of build time. Consider using --experimental_skyframe_target_pattern_evaluator or simplifying BUILD files.",
+            "Package loading",
+            [["Package Time", format_time(?PkgTime)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Bazel module processing time
+rule slow_module_processing {
+    when:
+        category_time("bazel module processing", ?ModTime),
+        total_duration(?Total),
+        ?Pct = (?ModTime * 100) / ?Total,
+        ?Pct > 5.
+    then:
+        suggestion(info, medium,
+            "Bazel module processing time",
+            "Module resolution takes {Pct}% of build time. This is expected for fresh builds with many external dependencies.",
+            "Module processing",
+            [["Module Time", format_time(?ModTime)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Action processing overhead
+rule action_processing_overhead {
+    when:
+        category_time("action processing", ?ActionTime),
+        total_duration(?Total),
+        ?Pct = (?ActionTime * 100) / ?Total,
+        total_actions(?Count),
+        ?Pct > 80.
+    then:
+        suggestion(success, low,
+            "Build dominated by actual work",
+            "Action processing accounts for {Pct}% of build time with {Count} actions. Minimal overhead from Bazel infrastructure.",
+            "Build efficiency",
+            [["Action Time", format_time(?ActionTime)], ["Actions", ?Count]]).
+}

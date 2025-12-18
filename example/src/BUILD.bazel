@@ -1,0 +1,41 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_binary(
+    name = "app",
+    srcs = ["main.cc"],
+    deps = ["//lib:utils"],
+)
+
+cc_test(
+    name = "math_test",
+    srcs = ["math_test.cc"],
+    deps = ["//lib:math"],
+)
+
+cc_test(
+    name = "strings_test",
+    srcs = ["strings_test.cc"],
+    deps = ["//lib:strings"],
+)
+
+# Generate some files to add more actions
+genrule(
+    name = "generate_config",
+    outs = ["config.h"],
+    cmd = """
+        echo '#define VERSION "1.0.0"' > $@
+        echo '#define BUILD_TIME "today"' >> $@
+    """,
+)
+
+genrule(
+    name = "generate_data",
+    outs = ["data.txt"],
+    cmd = "seq 1 1000 > $@",
+)
+
+filegroup(
+    name = "all_sources",
+    srcs = glob(["*.cc"]),
+)

@@ -1,0 +1,48 @@
+% Parallelism Detection Rules
+% Identifies builds with poor parallelization
+
+% Rule: Very low parallelism
+rule very_low_parallelism {
+    when:
+        max_concurrency(?MaxC),
+        ?MaxC < 4,
+        total_actions(?Count),
+        ?Count > 20.
+    then:
+        suggestion(warning, high,
+            "Very low parallelism detected",
+            "Max {MaxC} concurrent actions despite having {Count} total actions. Your build graph may have unnecessary dependencies. Consider restructuring BUILD files for better parallel execution.",
+            "Build graph",
+            [["Max Concurrent", ?MaxC], ["Total Actions", ?Count]]).
+}
+
+% Rule: Low parallelism
+rule low_parallelism {
+    when:
+        max_concurrency(?MaxC),
+        ?MaxC >= 4,
+        ?MaxC < 8,
+        total_actions(?Count),
+        ?Count > 50.
+    then:
+        suggestion(info, medium,
+            "Low parallelism detected",
+            "Max {MaxC} concurrent actions with {Count} total actions. There may be room to improve parallelism by breaking dependencies in the build graph.",
+            "Build graph",
+            [["Max Concurrent", ?MaxC], ["Total Actions", ?Count]]).
+}
+
+% Rule: Good parallelism (informational)
+rule good_parallelism {
+    when:
+        max_concurrency(?MaxC),
+        ?MaxC >= 8,
+        total_actions(?Count),
+        ?Count > 20.
+    then:
+        suggestion(success, low,
+            "Good parallelism",
+            "Your build achieves {MaxC} concurrent actions, which indicates a well-structured build graph.",
+            "Build graph",
+            [["Max Concurrent", ?MaxC], ["Total Actions", ?Count]]).
+}

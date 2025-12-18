@@ -1,0 +1,49 @@
+% Fetch Dependencies Detection Rules
+% Identifies excessive time spent fetching external dependencies
+% Note: Fetch actions are actionable - users control them via MODULE.bazel/WORKSPACE
+
+% Rule: Excessive fetch time (>15% of build)
+rule excessive_fetch_time {
+    when:
+        category_time("Fetching repository", ?FetchTime),
+        category_count("Fetching repository", ?FetchCount),
+        total_duration(?Total),
+        ?Pct = (?FetchTime * 100) / ?Total,
+        ?Pct > 15.
+    then:
+        suggestion(warning, high,
+            "External dependency fetching is slow",
+            "Fetch actions take {Pct}% of build time. Consider using --repository_cache to cache external dependencies locally, or use a repository mirror.",
+            "{FetchCount} fetch actions",
+            [["Total Fetch Time", format_time(?FetchTime)], ["Actions", ?FetchCount], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Moderate fetch time (>5% of build)
+rule moderate_fetch_time {
+    when:
+        category_time("Fetching repository", ?FetchTime),
+        category_count("Fetching repository", ?FetchCount),
+        total_duration(?Total),
+        ?Pct = (?FetchTime * 100) / ?Total,
+        ?Pct > 5,
+        ?Pct <= 15.
+    then:
+        suggestion(info, medium,
+            "Noticeable time fetching dependencies",
+            "Fetch actions take {Pct}% of build time. For repeated builds, consider --repository_cache.",
+            "{FetchCount} fetch actions",
+            [["Total Fetch Time", format_time(?FetchTime)], ["Actions", ?FetchCount], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Many fetch actions
+rule many_fetch_actions {
+    when:
+        category_count("Fetching repository", ?FetchCount),
+        ?FetchCount > 20.
+    then:
+        suggestion(info, low,
+            "Many external dependencies",
+            "Your build has {FetchCount} external fetch actions. Consider vendoring dependencies or using a monorepo approach to reduce fetch overhead.",
+            "{FetchCount} fetch actions",
+            [["Fetch Actions", ?FetchCount]]).
+}

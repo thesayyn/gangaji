@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gangaji - Technical Documentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bazel-green: #43A047;
+            --bazel-green-dark: #2E7D32;
+            --bazel-green-light: #E8F5E9;
+            --bg-white: #FFFFFF;
+            --bg-subtle: #FAFAFA;
+            --bg-code: #1e1e1e;
+            --border-color: #E5E5E5;
+            --text-primary: #212121;
+            --text-secondary: #616161;
+            --text-muted: #9E9E9E;
+            --font-sans: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-white);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding: 48px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 48px;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--bazel-green-light);
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 32px;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        code {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            background: var(--bg-subtle);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--bazel-green-dark);
+        }
+
+        pre {
+            background: var(--bg-code);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            margin: 16px 0 24px;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: #d4d4d4;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .comment { color: #6A9955; }
+        .keyword { color: #569CD6; }
+        .string { color: #CE9178; }
+        .property { color: #9CDCFE; }
+        .number { color: #B5CEA8; }
+        .type { color: #4EC9B0; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            font-weight: 600;
+            background: var(--bg-subtle);
+            color: var(--text-primary);
+        }
+
+        td {
+            color: var(--text-secondary);
+        }
+
+        td code {
+            font-size: 13px;
+        }
+
+        .note {
+            background: var(--bazel-green-light);
+            border-left: 4px solid var(--bazel-green);
+            padding: 16px 20px;
+            margin: 24px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .note-title {
+            font-weight: 600;
+            color: var(--bazel-green-dark);
+            margin-bottom: 4px;
+        }
+
+        .note p {
+            margin: 0;
+            color: var(--bazel-green-dark);
+        }
+
+        ul, ol {
+            margin: 16px 0;
+            padding-left: 24px;
+            color: var(--text-secondary);
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        a {
+            color: var(--bazel-green);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .toc {
+            background: var(--bg-subtle);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 48px;
+        }
+
+        .toc-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .toc ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .toc li {
+            margin-bottom: 6px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Technical Documentation</h1>
+    <p class="subtitle">How to integrate Gangaji flamegraph visualization into your SSG or build system.</p>
+
+    <div class="toc">
+        <div class="toc-title">Table of Contents</div>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#data-structure">Data Structure</a></li>
+            <li><a href="#integration">SSG Integration</a></li>
+            <li><a href="#customization">Customization</a></li>
+            <li><a href="#api">JavaScript API</a></li>
+        </ul>
+    </div>
+
+    <h2 id="overview">Overview</h2>
+    <p>
+        Gangaji is a single-file HTML application that renders interactive flamegraph visualizations
+        for Bazel build profiles. It's designed to be easily embedded into static sites, CI reports,
+        or served standalone.
+    </p>
+    <p>
+        The visualization reads profile data from a global JavaScript variable, making it simple
+        to inject data at build time using any SSG or templating system.
+    </p>
+
+    <h2 id="data-structure">Data Structure</h2>
+    <p>
+        Gangaji expects profile data in the Chrome Trace Event Format, which is the same format
+        output by <code>bazel --profile</code>. The data must be assigned to <code>window.BAZEL_PROFILE_DATA</code>
+        before the page loads.
+    </p>
+
+    <h3>Basic Structure</h3>
+<pre><code><span class="keyword">window</span>.<span class="property">BAZEL_PROFILE_DATA</span> = {
+  <span class="property">traceEvents</span>: [
+    <span class="comment">// Array of trace event objects</span>
+  ]
+};</code></pre>
+
+    <h3>Trace Event Object</h3>
+    <p>Each event in the <code>traceEvents</code> array represents a build action:</p>
+
+<pre><code>{
+  <span class="property">"name"</span>: <span class="string">"//src:main"</span>,        <span class="comment">// Target label or action name</span>
+  <span class="property">"cat"</span>: <span class="string">"action"</span>,             <span class="comment">// Category (action, test, fetch, etc.)</span>
+  <span class="property">"ph"</span>: <span class="string">"X"</span>,                   <span class="comment">// Phase type (X = complete event)</span>
+  <span class="property">"ts"</span>: <span class="number">50000</span>,                 <span class="comment">// Start timestamp in microseconds</span>
+  <span class="property">"dur"</span>: <span class="number">180000</span>,               <span class="comment">// Duration in microseconds</span>
+  <span class="property">"args"</span>: {                    <span class="comment">// Additional metadata</span>
+    <span class="property">"mnemonic"</span>: <span class="string">"CppCompile"</span>  <span class="comment">// Action mnemonic</span>
+  }
+}</code></pre>
+
+    <h3>Field Reference</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Required</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>name</code></td>
+                <td>string</td>
+                <td>Yes</td>
+                <td>Display name for the action (typically the Bazel target label)</td>
+            </tr>
+            <tr>
+                <td><code>cat</code></td>
+                <td>string</td>
+                <td>No</td>
+                <td>Category for grouping. Common values: <code>action</code>, <code>test</code>, <code>fetch</code>, <code>link</code>, <code>package</code></td>
+            </tr>
+            <tr>
+                <td><code>ph</code></td>
+                <td>string</td>
+                <td>Yes</td>
+                <td>Phase type. Use <code>"X"</code> for complete events (with duration)</td>
+            </tr>
+            <tr>
+                <td><code>ts</code></td>
+                <td>number</td>
+                <td>Yes</td>
+                <td>Start timestamp in microseconds from epoch or profile start</td>
+            </tr>
+            <tr>
+                <td><code>dur</code></td>
+                <td>number</td>
+                <td>Yes</td>
+                <td>Duration in microseconds. Events with <code>dur <= 0</code> are filtered out</td>
+            </tr>
+            <tr>
+                <td><code>args</code></td>
+                <td>object</td>
+                <td>No</td>
+                <td>Additional metadata object</td>
+            </tr>
+            <tr>
+                <td><code>args.mnemonic</code></td>
+                <td>string</td>
+                <td>No</td>
+                <td>Bazel action mnemonic (e.g., <code>CppCompile</code>, <code>Genrule</code>)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Complete Example</h3>
+<pre><code><span class="keyword">window</span>.<span class="property">BAZEL_PROFILE_DATA</span> = {
+  <span class="property">traceEvents</span>: [
+    {
+      <span class="property">"name"</span>: <span class="string">"//src:main"</span>,
+      <span class="property">"cat"</span>: <span class="string">"action"</span>,
+      <span class="property">"ph"</span>: <span class="string">"X"</span>,
+      <span class="property">"ts"</span>: <span class="number">0</span>,
+      <span class="property">"dur"</span>: <span class="number">450000</span>,
+      <span class="property">"args"</span>: { <span class="property">"mnemonic"</span>: <span class="string">"CppCompile"</span> }
+    },
+    {
+      <span class="property">"name"</span>: <span class="string">"//src:utils"</span>,
+      <span class="property">"cat"</span>: <span class="string">"action"</span>,
+      <span class="property">"ph"</span>: <span class="string">"X"</span>,
+      <span class="property">"ts"</span>: <span class="number">50000</span>,
+      <span class="property">"dur"</span>: <span class="number">180000</span>,
+      <span class="property">"args"</span>: { <span class="property">"mnemonic"</span>: <span class="string">"CppCompile"</span> }
+    },
+    {
+      <span class="property">"name"</span>: <span class="string">"//test:unit_tests"</span>,
+      <span class="property">"cat"</span>: <span class="string">"test"</span>,
+      <span class="property">"ph"</span>: <span class="string">"X"</span>,
+      <span class="property">"ts"</span>: <span class="number">500000</span>,
+      <span class="property">"dur"</span>: <span class="number">300000</span>,
+      <span class="property">"args"</span>: { <span class="property">"mnemonic"</span>: <span class="string">"TestRunner"</span> }
+    }
+  ]
+};</code></pre>
+
+    <h2 id="integration">SSG Integration</h2>
+    <p>
+        To integrate Gangaji into your static site generator, you need to inject the profile data
+        as a script tag before the main application code runs.
+    </p>
+
+    <h3>Method 1: Inline Script Injection</h3>
+    <p>Add a script tag with your profile data before closing <code>&lt;/head&gt;</code> or at the start of <code>&lt;body&gt;</code>:</p>
+
+<pre><code><span class="keyword">&lt;script&gt;</span>
+  <span class="keyword">window</span>.<span class="property">BAZEL_PROFILE_DATA</span> = {{ profile_data | json }};
+<span class="keyword">&lt;/script&gt;</span></code></pre>
+
+    <h3>Method 2: External JSON File</h3>
+    <p>Load profile data from an external JSON file:</p>
+
+<pre><code><span class="keyword">&lt;script&gt;</span>
+  <span class="keyword">fetch</span>(<span class="string">'./profile.json'</span>)
+    .<span class="property">then</span>(<span class="property">r</span> => <span class="property">r</span>.<span class="property">json</span>())
+    .<span class="property">then</span>(<span class="property">data</span> => {
+      <span class="keyword">window</span>.<span class="property">BAZEL_PROFILE_DATA</span> = <span class="property">data</span>;
+      <span class="comment">// Initialize flamegraph after data loads</span>
+      <span class="keyword">window</span>.<span class="property">flameGraph</span> = <span class="keyword">new</span> <span class="type">FlameGraph</span>();
+    });
+<span class="keyword">&lt;/script&gt;</span></code></pre>
+
+    <h3>Hugo Example</h3>
+<pre><code><span class="comment">{{/* layouts/profile/single.html */}}</span>
+<span class="keyword">&lt;script&gt;</span>
+  window.BAZEL_PROFILE_DATA = {{ .Params.profile_data | jsonify }};
+<span class="keyword">&lt;/script&gt;</span></code></pre>
+
+    <h3>Jekyll Example</h3>
+<pre><code><span class="comment">---</span>
+<span class="comment">layout: profile</span>
+<span class="comment">---</span>
+<span class="keyword">&lt;script&gt;</span>
+  window.BAZEL_PROFILE_DATA = {{ page.profile_data | jsonify }};
+<span class="keyword">&lt;/script&gt;</span></code></pre>
+
+    <h3>11ty (Eleventy) Example</h3>
+<pre><code><span class="keyword">&lt;script&gt;</span>
+  window.BAZEL_PROFILE_DATA = {{ profileData | dump | safe }};
+<span class="keyword">&lt;/script&gt;</span></code></pre>
+
+    <h3>Converting Bazel Profile Output</h3>
+    <p>Bazel outputs profile data as gzipped JSON. To use it with Gangaji:</p>
+
+<pre><code><span class="comment"># Generate profile during build</span>
+bazel build //... --profile=profile.json.gz
+
+<span class="comment"># Decompress for use</span>
+gunzip profile.json.gz
+
+<span class="comment"># The resulting profile.json can be used directly</span></code></pre>
+
+    <div class="note">
+        <div class="note-title">Note</div>
+        <p>Bazel's profile format is compatible with Gangaji. You can use the output directly without transformation.</p>
+    </div>
+
+    <h2 id="customization">Customization</h2>
+
+    <h3>Theming</h3>
+    <p>Gangaji supports light and dark themes via the <code>data-theme</code> attribute on the root element:</p>
+
+<pre><code><span class="comment">&lt;!-- Light theme (default) --&gt;</span>
+<span class="keyword">&lt;html</span> <span class="property">lang</span>=<span class="string">"en"</span><span class="keyword">&gt;</span>
+
+<span class="comment">&lt;!-- Dark theme --&gt;</span>
+<span class="keyword">&lt;html</span> <span class="property">lang</span>=<span class="string">"en"</span> <span class="property">data-theme</span>=<span class="string">"dark"</span><span class="keyword">&gt;</span></code></pre>
+
+    <h3>CSS Variables</h3>
+    <p>Override these CSS variables to customize colors:</p>
+
+<pre><code><span class="keyword">:root</span> {
+  <span class="property">--bazel-green</span>: <span class="string">#43A047</span>;
+  <span class="property">--bazel-green-dark</span>: <span class="string">#2E7D32</span>;
+  <span class="property">--bazel-green-light</span>: <span class="string">#E8F5E9</span>;
+  <span class="property">--bg-white</span>: <span class="string">#FFFFFF</span>;
+  <span class="property">--bg-subtle</span>: <span class="string">#FAFAFA</span>;
+  <span class="property">--border-color</span>: <span class="string">#E5E5E5</span>;
+  <span class="property">--text-primary</span>: <span class="string">#212121</span>;
+  <span class="property">--text-secondary</span>: <span class="string">#757575</span>;
+}</code></pre>
+
+    <h2 id="api">JavaScript API</h2>
+    <p>After initialization, the flamegraph instance is available at <code>window.flameGraph</code>:</p>
+
+    <h3>Methods</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Method</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>render()</code></td>
+                <td>Re-render the flamegraph (call after theme changes)</td>
+            </tr>
+            <tr>
+                <td><code>setupCanvas()</code></td>
+                <td>Recalculate canvas dimensions (call after resize)</td>
+            </tr>
+            <tr>
+                <td><code>zoomToFrame(frame)</code></td>
+                <td>Zoom to a specific frame</td>
+            </tr>
+            <tr>
+                <td><code>resetZoom()</code></td>
+                <td>Reset to initial zoom level</td>
+            </tr>
+            <tr>
+                <td><code>search(term)</code></td>
+                <td>Highlight frames matching the search term</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Example: Programmatic Control</h3>
+<pre><code><span class="comment">// Search for specific targets</span>
+<span class="keyword">window</span>.<span class="property">flameGraph</span>.<span class="property">search</span>(<span class="string">'CppCompile'</span>);
+
+<span class="comment">// Reset view</span>
+<span class="keyword">window</span>.<span class="property">flameGraph</span>.<span class="property">resetZoom</span>();
+
+<span class="comment">// Re-render after theme change</span>
+<span class="keyword">document</span>.<span class="property">documentElement</span>.<span class="property">setAttribute</span>(<span class="string">'data-theme'</span>, <span class="string">'dark'</span>);
+<span class="keyword">window</span>.<span class="property">flameGraph</span>.<span class="property">render</span>();</code></pre>
+
+    <h2>Build System Integration</h2>
+    <p>For CI/CD pipelines, you can generate profile reports automatically:</p>
+
+<pre><code><span class="comment">#!/bin/bash</span>
+<span class="comment"># generate-profile-report.sh</span>
+
+<span class="comment"># Build with profiling</span>
+bazel build //... --profile=profile.json.gz
+
+<span class="comment"># Decompress</span>
+gunzip -f profile.json.gz
+
+<span class="comment"># Generate HTML report</span>
+cat &gt; report.html <span class="string">&lt;&lt;EOF</span>
+<span class="string">&lt;!DOCTYPE html&gt;</span>
+<span class="string">&lt;html&gt;</span>
+<span class="string">&lt;head&gt;</span>
+<span class="string">  &lt;script&gt;</span>
+<span class="string">    window.BAZEL_PROFILE_DATA = $(cat profile.json);</span>
+<span class="string">  &lt;/script&gt;</span>
+<span class="string">&lt;/head&gt;</span>
+<span class="string">&lt;body&gt;</span>
+<span class="string">  &lt;!-- Include Gangaji HTML here --&gt;</span>
+<span class="string">&lt;/body&gt;</span>
+<span class="string">&lt;/html&gt;</span>
+<span class="string">EOF</span></code></pre>
+
+</body>
+</html>

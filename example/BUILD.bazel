@@ -1,0 +1,279 @@
+# Root BUILD file
+
+load("//:defs.bzl", "heavy_rule", "analyze_sources", "heavy_genrule", "generate_many_targets", "process_and_generate")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+
+# Heavy computation rules
+heavy_rule(
+    name = "heavy_computation",
+    deps = ["//lib:math", "//lib:strings"],
+)
+
+analyze_sources(
+    name = "source_analysis",
+    srcs = [
+        "//lib:math.cc",
+        "//lib:math.h",
+        "//lib:strings.cc",
+        "//lib:strings.h",
+        "//lib:utils.cc",
+        "//lib:utils.h",
+    ],
+)
+
+# Generate many targets with heavy Starlark processing
+generate_many_targets("generated", 50)
+
+# Heavy genrules with computation
+heavy_genrule(name = "computed_1")
+heavy_genrule(name = "computed_2")
+heavy_genrule(name = "computed_3")
+
+# String processing targets
+process_and_generate("processed_alpha", "alpha_beta_gamma")
+process_and_generate("processed_delta", "delta_epsilon_zeta")
+process_and_generate("processed_theta", "theta_iota_kappa")
+
+# ============================================
+# Slow targets to increase build time to 30s+
+# ============================================
+
+# BLOCKING BOTTLENECK: This genrule sleeps for 20 seconds and blocks
+# all downstream targets from being scheduled until it completes.
+# This demonstrates a critical path bottleneck that Gangaji should detect.
+genrule(
+    name = "blocking_bottleneck",
+    outs = ["bottleneck_marker.txt"],
+    cmd = "echo 'Starting 20 second bottleneck...' && sleep 20 && echo 'Bottleneck complete' > $@",
+)
+
+# Slow genrules that actually take time during execution
+# These all depend on the blocking_bottleneck, so they can't start until it finishes
+genrule(
+    name = "slow_data_generation_1",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_1.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+genrule(
+    name = "slow_data_generation_2",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_2.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+genrule(
+    name = "slow_data_generation_3",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_3.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+genrule(
+    name = "slow_data_generation_4",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_4.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+genrule(
+    name = "slow_data_generation_5",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_5.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+genrule(
+    name = "slow_data_generation_6",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_6.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+genrule(
+    name = "slow_data_generation_7",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_7.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+genrule(
+    name = "slow_data_generation_8",
+    srcs = [":blocking_bottleneck"],
+    outs = ["slow_data_8.bin"],
+    cmd = "sleep 3 && dd if=/dev/urandom of=$@ bs=1024 count=1024 2>/dev/null",
+)
+
+# Sequential slow targets (these depend on each other, creating a long chain)
+# Total: 15 targets x 2 seconds each = 30 seconds minimum on critical path
+genrule(
+    name = "slow_chain_1",
+    outs = ["chain_1.txt"],
+    cmd = "sleep 2 && echo 'chain 1' > $@",
+)
+
+genrule(
+    name = "slow_chain_2",
+    srcs = [":slow_chain_1"],
+    outs = ["chain_2.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 2' >> $@",
+)
+
+genrule(
+    name = "slow_chain_3",
+    srcs = [":slow_chain_2"],
+    outs = ["chain_3.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 3' >> $@",
+)
+
+genrule(
+    name = "slow_chain_4",
+    srcs = [":slow_chain_3"],
+    outs = ["chain_4.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 4' >> $@",
+)
+
+genrule(
+    name = "slow_chain_5",
+    srcs = [":slow_chain_4"],
+    outs = ["chain_5.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 5' >> $@",
+)
+
+genrule(
+    name = "slow_chain_6",
+    srcs = [":slow_chain_5"],
+    outs = ["chain_6.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 6' >> $@",
+)
+
+genrule(
+    name = "slow_chain_7",
+    srcs = [":slow_chain_6"],
+    outs = ["chain_7.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 7' >> $@",
+)
+
+genrule(
+    name = "slow_chain_8",
+    srcs = [":slow_chain_7"],
+    outs = ["chain_8.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 8' >> $@",
+)
+
+genrule(
+    name = "slow_chain_9",
+    srcs = [":slow_chain_8"],
+    outs = ["chain_9.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 9' >> $@",
+)
+
+genrule(
+    name = "slow_chain_10",
+    srcs = [":slow_chain_9"],
+    outs = ["chain_10.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 10' >> $@",
+)
+
+genrule(
+    name = "slow_chain_11",
+    srcs = [":slow_chain_10"],
+    outs = ["chain_11.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 11' >> $@",
+)
+
+genrule(
+    name = "slow_chain_12",
+    srcs = [":slow_chain_11"],
+    outs = ["chain_12.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 12' >> $@",
+)
+
+genrule(
+    name = "slow_chain_13",
+    srcs = [":slow_chain_12"],
+    outs = ["chain_13.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 13' >> $@",
+)
+
+genrule(
+    name = "slow_chain_14",
+    srcs = [":slow_chain_13"],
+    outs = ["chain_14.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 14' >> $@",
+)
+
+genrule(
+    name = "slow_chain_15",
+    srcs = [":slow_chain_14"],
+    outs = ["chain_15.txt"],
+    cmd = "sleep 2 && cat $(SRCS) > $@ && echo 'chain 15' >> $@",
+)
+
+# Slow tar targets - packaging various components
+pkg_tar(
+    name = "headers_archive",
+    srcs = [
+        "//lib:math.h",
+        "//lib:strings.h",
+        "//lib:utils.h",
+    ],
+    package_dir = "include",
+)
+
+pkg_tar(
+    name = "sources_archive",
+    srcs = [
+        "//lib:math.cc",
+        "//lib:strings.cc",
+        "//lib:utils.cc",
+    ],
+    package_dir = "src",
+)
+
+pkg_tar(
+    name = "generated_archive",
+    srcs = [
+        ":computed_1",
+        ":computed_2",
+        ":computed_3",
+    ],
+    package_dir = "generated",
+)
+
+pkg_tar(
+    name = "slow_data_archive",
+    srcs = [
+        ":slow_data_generation_1",
+        ":slow_data_generation_2",
+        ":slow_data_generation_3",
+        ":slow_data_generation_4",
+        ":slow_data_generation_5",
+        ":slow_data_generation_6",
+        ":slow_data_generation_7",
+        ":slow_data_generation_8",
+    ],
+    package_dir = "data",
+)
+
+pkg_tar(
+    name = "full_distribution",
+    deps = [
+        ":headers_archive",
+        ":sources_archive",
+        ":generated_archive",
+        ":slow_data_archive",
+    ],
+)
+
+# Final target that depends on the slow chain
+genrule(
+    name = "final_output",
+    srcs = [
+        ":slow_chain_15",
+        ":full_distribution",
+    ],
+    outs = ["final.txt"],
+    cmd = "echo 'Build complete' > $@",
+)

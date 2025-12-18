@@ -1,0 +1,133 @@
+% Gangaji Datalog Schema
+% Base relations and derived facts for build profile analysis
+
+% =============================================================================
+% BASE FACTS (generated from trace events)
+% =============================================================================
+
+% trace_event(EventId, Name, Category, StartUs, DurationUs)
+%   - EventId: unique identifier for the event
+%   - Name: event name (typically the target label)
+%   - Category: event category (action, fetch, starlark, etc.)
+%   - StartUs: start timestamp in microseconds
+%   - DurationUs: duration in microseconds
+
+% trace_event_mnemonic(EventId, Mnemonic)
+%   - Mnemonic: Bazel action mnemonic (CppCompile, GoCompile, etc.)
+
+% trace_event_tid(EventId, ThreadId)
+%   - ThreadId: thread that executed the event
+
+% trace_event_pid(EventId, ProcessId)
+%   - ProcessId: process that executed the event
+
+% trace_event_target(EventId, Target)
+%   - Target: Bazel target label for the event
+
+% =============================================================================
+% ACTIONABILITY FACTS (pre-computed)
+% =============================================================================
+
+% is_actionable(EventId)
+%   - Event represents user-controlled work (has target OR actionable category + mnemonic)
+%   - These are spans where optimization efforts will have impact
+
+% is_system(EventId)
+%   - Event represents Bazel infrastructure/internal work
+%   - "general information", "gc notification", "skyframe evaluator", etc.
+%   - Optimizing these requires changes to Bazel itself
+
+% has_target(EventId)
+%   - Event has a Bazel target label (user's BUILD files)
+
+% actionable_time(TotalUs)
+%   - Total time spent on actionable (user-controlled) spans
+
+% actionable_count(Count)
+%   - Number of actionable events
+
+% target_time(Target, TotalUs)
+%   - Total time spent on each Bazel target
+
+% =============================================================================
+% AGGREGATE FACTS (pre-computed)
+% =============================================================================
+
+% total_duration(TotalUs)
+%   - Total build wall-clock time in microseconds
+
+% total_action_time(TotalUs)
+%   - Sum of all action durations (may exceed wall-clock due to parallelism)
+
+% total_actions(Count)
+%   - Total number of trace events/actions
+
+% category_time(Category, TotalUs)
+%   - Total time spent in each category
+
+% category_count(Category, Count)
+%   - Number of events in each category
+
+% mnemonic_time(Mnemonic, TotalUs)
+%   - Total time spent in each mnemonic type (only actionable events with targets)
+
+% mnemonic_count(Mnemonic, Count)
+%   - Number of events for each mnemonic (only actionable events with targets)
+
+% max_concurrency(MaxConcurrent)
+%   - Maximum number of concurrent events
+
+% critical_path_end(EventId, Name, Duration, Target)
+%   - Actionable event that ends last in the build
+
+% critical_path_percent(Percent)
+%   - Percentage of build time on critical path
+
+% potential_bottleneck(EventId, Name, Duration, Percent, Target)
+%   - Top actionable events by duration that may be bottlenecks
+
+% event_percent(EventId, Percent)
+%   - Percentage of total build time for each event
+
+% =============================================================================
+% DERIVED RELATIONS
+% =============================================================================
+
+% Event end time
+event_end(?E, ?End) :-
+    trace_event(?E, _, _, ?Start, ?Dur),
+    ?End = ?Start + ?Dur.
+
+% Events in a specific category (using actual Bazel category names)
+is_fetch(?E) :- trace_event(?E, _, "Fetching repository", _, _).
+is_action_processing(?E) :- trace_event(?E, _, "action processing", _, _).
+is_complete_action(?E) :- trace_event(?E, _, "complete action execution", _, _).
+is_starlark(?E) :- trace_event(?E, _, "starlark", _, _).
+is_test(?E) :- trace_event(?E, _, "test", _, _).
+is_package_creation(?E) :- trace_event(?E, _, "package creation", _, _).
+
+% Events by mnemonic
+is_cpp_compile(?E) :- trace_event_mnemonic(?E, "CppCompile").
+is_cpp_link(?E) :- trace_event_mnemonic(?E, "CppLink").
+is_go_compile(?E) :- trace_event_mnemonic(?E, "GoCompile").
+is_java_compile(?E) :- trace_event_mnemonic(?E, "Javac").
+is_genrule(?E) :- trace_event_mnemonic(?E, "Genrule").
+
+% Slow actionable event (>5% of build) - only user-controlled spans
+is_slow(?E, ?Pct) :-
+    event_percent(?E, ?Pct),
+    is_actionable(?E),
+    ?Pct > 5.
+
+% Very slow actionable event (>10% of build) - only user-controlled spans
+is_very_slow(?E, ?Pct) :-
+    event_percent(?E, ?Pct),
+    is_actionable(?E),
+    ?Pct > 10.
+
+% Actionable slow event with target info
+is_slow_target(?E, ?Target, ?Pct) :-
+    event_percent(?E, ?Pct),
+    is_actionable(?E),
+    trace_event_target(?E, ?Target),
+    ?Pct > 5.

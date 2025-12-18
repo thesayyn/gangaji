@@ -1,0 +1,47 @@
+% Test Bottleneck Detection Rules
+% Identifies slow test actions (user-controlled via BUILD test targets)
+
+% Rule: Test actions dominating build
+rule test_time_high {
+    when:
+        category_time("test", ?TestTime),
+        total_duration(?Total),
+        ?Pct = (?TestTime * 100) / ?Total,
+        ?Pct > 30.
+    then:
+        suggestion(warning, medium,
+            "Tests dominate build time",
+            "Test actions take {Pct}% of build time. Consider running tests in parallel with --test_strategy=local or using test sharding.",
+            "Test execution",
+            [["Test Time", format_time(?TestTime)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Slow individual test (only actionable events with targets)
+rule slow_test {
+    when:
+        trace_event(?E, ?Name, "test", _, ?Dur),
+        is_actionable(?E),
+        trace_event_target(?E, ?Target),
+        event_percent(?E, ?Pct),
+        ?Pct > 10.
+    then:
+        suggestion(warning, high,
+            "Slow test: {Target}",
+            "This test takes {Pct}% of build time. Consider sharding or optimizing the test.",
+            ?Target,
+            [["Action", ?Name], ["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Many test actions
+rule many_tests {
+    when:
+        category_count("test", ?TestCount),
+        category_time("test", ?TestTime),
+        ?TestCount > 50.
+    then:
+        suggestion(info, low,
+            "Large test suite",
+            "Build includes {TestCount} test actions. Consider test filtering with --test_filter for faster iteration.",
+            "{TestCount} tests",
+            [["Test Count", ?TestCount], ["Total Test Time", format_time(?TestTime)]]).
+}

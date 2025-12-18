@@ -1,0 +1,33 @@
+% GC Pressure Detection Rules
+% Identifies excessive garbage collection time
+
+% Rule: High GC time
+rule high_gc_time {
+    when:
+        category_time("gc notification", ?GCTime),
+        total_duration(?Total),
+        ?Pct = (?GCTime * 100) / ?Total,
+        ?Pct > 5.
+    then:
+        suggestion(warning, medium,
+            "High garbage collection time",
+            "GC takes {Pct}% of build time. Consider increasing JVM heap size with --host_jvm_args=-Xmx4g or similar.",
+            "JVM GC",
+            [["GC Time", format_time(?GCTime)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Moderate GC time
+rule moderate_gc_time {
+    when:
+        category_time("gc notification", ?GCTime),
+        total_duration(?Total),
+        ?Pct = (?GCTime * 100) / ?Total,
+        ?Pct > 2,
+        ?Pct <= 5.
+    then:
+        suggestion(info, low,
+            "Noticeable garbage collection",
+            "GC takes {Pct}% of build time. If builds are memory-constrained, consider adjusting JVM heap settings.",
+            "JVM GC",
+            [["GC Time", format_time(?GCTime)], ["% of Build", "{Pct}%"]]).
+}

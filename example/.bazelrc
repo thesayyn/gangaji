@@ -1,0 +1,11 @@
+# Common settings
+build --enable_bzlmod
+
+# Include target labels in profile for better visibility
+build --experimental_profile_include_target_label
+
+# Profile generation shortcuts
+build:profile --profile=profile.json
+build:profile-gz --profile=profile.json.gz
+build:starlark --starlark_cpu_profile=starlark.json
+build:all-profiles --profile=profile.json --starlark_cpu_profile=starlark.json

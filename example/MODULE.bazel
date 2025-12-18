@@ -1,0 +1,4 @@
+module(name = "gangaji_example")
+
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "rules_pkg", version = "1.0.1")

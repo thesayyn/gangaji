@@ -1,0 +1,49 @@
+% Slow Actions Detection Rules
+% Identifies actionable (user-controlled) actions consuming significant build time
+
+% Rule: Very slow actionable event (>10% of build time)
+% Only targets user-controlled spans - not Bazel internal overhead
+rule slow_action_high {
+    when:
+        trace_event(?E, ?Name, _, _, ?Dur),
+        is_actionable(?E),
+        trace_event_target(?E, ?Target),
+        event_percent(?E, ?Pct),
+        ?Pct > 10.
+    then:
+        suggestion(warning, high,
+            "Slow action: {Target}",
+            "This action takes {Pct}% of total build time. Consider optimizing, splitting into smaller units, or checking if it can be parallelized better.",
+            ?Target,
+            [["Action", ?Name], ["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Moderately slow actionable event (>5% of build time)
+rule slow_action_medium {
+    when:
+        trace_event(?E, ?Name, _, _, ?Dur),
+        is_actionable(?E),
+        trace_event_target(?E, ?Target),
+        event_percent(?E, ?Pct),
+        ?Pct > 5,
+        ?Pct <= 10.
+    then:
+        suggestion(info, medium,
+            "Moderately slow action: {Target}",
+            "This action takes {Pct}% of total build time. Consider if this can be optimized.",
+            ?Target,
+            [["Action", ?Name], ["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Top slowest actionable events - these are your optimization targets
+rule top_slow_actions {
+    when:
+        potential_bottleneck(?E, ?Name, ?Dur, ?Pct, ?Target),
+        ?Pct > 5.
+    then:
+        suggestion(info, medium,
+            "Potential bottleneck: {Target}",
+            "One of the top slowest user-controlled actions. Review if this can be optimized.",
+            ?Target,
+            [["Action", ?Name], ["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"]]).
+}

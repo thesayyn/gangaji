@@ -1,0 +1,47 @@
+% Starlark Hotspots Detection Rules
+% Identifies expensive Starlark functions
+
+% Rule: Starlark consuming significant time
+rule starlark_time_high {
+    when:
+        category_time("starlark", ?StarlarkTime),
+        total_duration(?Total),
+        ?Pct = (?StarlarkTime * 100) / ?Total,
+        ?Pct > 10.
+    then:
+        suggestion(warning, high,
+            "High Starlark evaluation time",
+            "Starlark code evaluation takes {Pct}% of build time. Consider optimizing .bzl files, reducing macro complexity, or caching computed values.",
+            "Starlark evaluation",
+            [["Starlark Time", format_time(?StarlarkTime)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Moderate Starlark time
+rule starlark_time_medium {
+    when:
+        category_time("starlark", ?StarlarkTime),
+        total_duration(?Total),
+        ?Pct = (?StarlarkTime * 100) / ?Total,
+        ?Pct > 5,
+        ?Pct <= 10.
+    then:
+        suggestion(info, medium,
+            "Noticeable Starlark evaluation time",
+            "Starlark code evaluation takes {Pct}% of build time. Profile with --starlark_cpu_profile for detailed analysis.",
+            "Starlark evaluation",
+            [["Starlark Time", format_time(?StarlarkTime)], ["% of Build", "{Pct}%"]]).
+}
+
+% Rule: Individual slow Starlark function
+rule slow_starlark_function {
+    when:
+        trace_event(?E, ?Name, "starlark", _, ?Dur),
+        event_percent(?E, ?Pct),
+        ?Pct > 3.
+    then:
+        suggestion(info, medium,
+            "Slow Starlark function: {Name}",
+            "This Starlark function takes {Pct}% of build time. Review for optimization opportunities.",
+            ?Name,
+            [["Duration", format_time(?Dur)], ["% of Build", "{Pct}%"]]).
+}

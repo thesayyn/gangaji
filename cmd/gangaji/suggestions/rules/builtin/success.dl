@@ -1,0 +1,50 @@
+% Success Rules
+% Provides positive feedback when builds are well-optimized
+
+% Rule: Well-optimized build
+rule well_optimized_build {
+    when:
+        total_duration(?Total),
+        max_concurrency(?MaxC),
+        total_actions(?Count),
+        ?MaxC >= 4,
+        ?Count > 10,
+        ?Total < 30000000.
+    then:
+        suggestion(success, low,
+            "Build is well-optimized",
+            "Your build completes in under 30 seconds with good parallelism ({MaxC} concurrent actions). No major issues detected.",
+            "Build performance",
+            [["Build Time", format_time(?Total)], ["Max Concurrency", ?MaxC], ["Actions", ?Count]]).
+}
+
+% Rule: Fast build
+rule fast_build {
+    when:
+        total_duration(?Total),
+        total_actions(?Count),
+        ?Count > 5,
+        ?Total < 10000000.
+    then:
+        suggestion(success, low,
+            "Fast build",
+            "Build completes in under 10 seconds with {Count} actions. Nice work!",
+            "Build speed",
+            [["Build Time", format_time(?Total)], ["Actions", ?Count]]).
+}
+
+% Rule: Good remote cache utilization (if detectable)
+rule efficient_incremental {
+    when:
+        total_duration(?Total),
+        total_actions(?Count),
+        total_action_time(?ActionTime),
+        ?Count > 20,
+        ?Total < 5000000.
+    then:
+        suggestion(success, low,
+            "Efficient incremental build",
+            "Build has {Count} actions but completes quickly, suggesting good cache utilization.",
+            "Cache efficiency",
+            [["Build Time", format_time(?Total)], ["Actions", ?Count]]).
+}

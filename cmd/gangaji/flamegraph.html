@@ -1,0 +1,3045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gangaji - Bazel Profiler</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bazel-green: #43A047;
+            --bazel-green-dark: #2E7D32;
+            --bazel-green-light: #E8F5E9;
+            --bg-white: #FFFFFF;
+            --bg-subtle: #FAFAFA;
+            --bg-grid: #F5F5F5;
+            --border-color: #e5e5e5;
+            --border-dark: #BDBDBD;
+            --text-primary: #212121;
+            --text-secondary: #757575;
+            --text-muted: #9E9E9E;
+            --warning-color: #F59E0B;
+            --warning-bg: #FFFBEB;
+            --info-color: #3B82F6;
+            --info-bg: #EFF6FF;
+            --success-color: #10B981;
+            --success-bg: #ECFDF5;
+            --font-sans: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'SF Mono', 'Roboto Mono', 'Source Code Pro', monospace;
+        }
+
+        [data-theme="dark"] {
+            --bazel-green: #66BB6A;
+            --bazel-green-dark: #43A047;
+            --bazel-green-light: #1B3D1E;
+            --bg-white: #1a1a1a;
+            --bg-subtle: #242424;
+            --bg-grid: #2a2a2a;
+            --border-color: #333333;
+            --border-dark: #444444;
+            --text-primary: #E5E5E5;
+            --text-secondary: #A3A3A3;
+            --text-muted: #737373;
+            --warning-color: #FBBF24;
+            --warning-bg: #422006;
+            --info-color: #60A5FA;
+            --info-bg: #1E3A5F;
+            --success-color: #34D399;
+            --success-bg: #064E3B;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-white);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: relative;
+            height: 48px;
+            min-height: 48px;
+            background: var(--bg-white);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .logo-container {
+            width: 32px;
+            height: 32px;
+            background: var(--bazel-green-light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo {
+            width: 20px;
+            height: 20px;
+        }
+
+        .title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            line-height: 1.1;
+        }
+
+        .title-main {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .title-sub {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .tab-btn {
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            font-family: var(--font-sans);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 6px;
+        }
+
+        .tab-btn:hover {
+            background: var(--bg-subtle);
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--bazel-green-light);
+            color: var(--bazel-green-dark);
+        }
+
+        .tab-btn svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.7;
+        }
+
+        .tab-btn.active svg {
+            opacity: 1;
+        }
+
+        .tab-key {
+            font-size: 9px;
+            padding: 1px 4px;
+            background: var(--bg-grid);
+            border-radius: 2px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-weight: 400;
+        }
+
+        .tab-btn.active .tab-key {
+            background: rgba(46, 125, 50, 0.2);
+            color: var(--bazel-green-dark);
+        }
+
+        .top-bar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stats-summary {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            font-size: 14px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-subtle);
+            color: var(--text-primary);
+        }
+
+        .theme-toggle svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .theme-toggle .sun-icon {
+            display: none;
+        }
+
+        .theme-toggle .moon-icon {
+            display: block;
+        }
+
+        [data-theme="dark"] .theme-toggle .sun-icon {
+            display: block;
+        }
+
+        [data-theme="dark"] .theme-toggle .moon-icon {
+            display: none;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            flex: 1;
+            display: none;
+            overflow: hidden;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* ==================== PROFILE TAB ==================== */
+        .profile-layout {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Search Bar */
+        .search-bar {
+            padding: 12px 16px;
+            background: var(--bg-subtle);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .search-input {
+            width: 100%;
+            height: 36px;
+            padding: 0 60px 0 36px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: var(--font-sans);
+            background: var(--bg-white);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--bazel-green);
+            box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.1);
+        }
+
+        .search-count {
+            position: absolute;
+            right: 10px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            background: var(--bg-subtle);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        /* Left Panel */
+        .left-panel {
+            position: relative;
+            width: 320px;
+            min-width: 320px;
+            background: var(--bg-white);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+        }
+
+        .section-header {
+            height: 40px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            background: var(--bg-subtle);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .section-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        /* Details Section */
+        .details-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .details-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .details-placeholder {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .details-placeholder svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+
+        .details-grid {
+            display: none;
+            flex-direction: column;
+        }
+
+        .details-grid.visible {
+            display: flex;
+        }
+
+        .detail-title-row {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .detail-title-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            word-break: break-word;
+            line-height: 1.4;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--bg-grid);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .detail-value {
+            font-size: 13px;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+
+        .detail-value.highlight {
+            color: var(--bazel-green-dark);
+            font-weight: 700;
+        }
+
+        .detail-value.mnemonic {
+            background: var(--bazel-green);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Children Section */
+        .children-section {
+            height: 200px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .children-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .children-empty {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .child-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.1s;
+            margin-bottom: 4px;
+        }
+
+        .child-item:hover {
+            background: var(--bg-subtle);
+        }
+
+        .child-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .child-name {
+            font-size: 12px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .child-bar-container {
+            height: 4px;
+            background: var(--bg-grid);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .child-bar {
+            height: 100%;
+            background: var(--bazel-green);
+            border-radius: 2px;
+        }
+
+        .child-duration {
+            font-size: 11px;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+
+        /* Right Area */
+        .right-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb-bar {
+            height: 36px;
+            min-height: 36px;
+            display: none;
+            align-items: center;
+            padding: 0 16px;
+            background: var(--bg-subtle);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+        }
+
+        .breadcrumb-bar.visible {
+            display: flex;
+        }
+
+        .breadcrumb-item {
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.1s;
+        }
+
+        .breadcrumb-item:hover {
+            background: var(--bg-grid);
+            color: var(--text-primary);
+        }
+
+        .breadcrumb-item.current {
+            color: var(--bazel-green-dark);
+            font-weight: 600;
+            background: var(--bazel-green-light);
+        }
+
+        .breadcrumb-sep {
+            color: var(--text-muted);
+            margin: 0 2px;
+        }
+
+        /* Left Panel Collapse Animation */
+        .left-panel {
+            transition: width 0.2s, min-width 0.2s;
+        }
+
+        .left-panel.collapsed {
+            width: 0 !important;
+            min-width: 0 !important;
+        }
+
+        .left-panel.collapsed .search-bar,
+        .left-panel.collapsed .details-section,
+        .left-panel.collapsed .children-section {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Collapse Button */
+        .collapse-btn {
+            position: absolute;
+            top: 50%;
+            left: 100%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 28px;
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-left: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            z-index: 20;
+        }
+
+        .collapse-btn:hover {
+            background: var(--bg-subtle);
+            color: var(--text-primary);
+        }
+
+        .collapse-btn svg {
+            width: 10px;
+            height: 10px;
+            transition: transform 0.2s;
+        }
+
+        .left-panel.collapsed .collapse-btn svg {
+            transform: rotate(180deg);
+        }
+
+        /* Flamegraph */
+        .flamegraph-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #flamegraph-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        /* Zoom Controls */
+        .zoom-controls {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .zoom-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 18px;
+            font-weight: 300;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.1s;
+        }
+
+        .zoom-btn:hover {
+            background: var(--bg-subtle);
+        }
+
+        .zoom-btn.reset {
+            width: auto;
+            padding: 0 12px;
+            font-size: 12px;
+            font-weight: 300;
+        }
+
+        .zoom-divider {
+            width: 1px;
+            height: 18px;
+            background: var(--border-color);
+            margin: 0 2px;
+        }
+
+        /* Time Axis */
+        .time-axis {
+            height: 28px;
+            min-height: 28px;
+            background: var(--bg-subtle);
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Keyboard hint */
+        .keyboard-hint {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 12px;
+            left: 220px;
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .legend-color.build {
+            background: #43A047;
+        }
+
+        .legend-color.starlark {
+            background: #7B1FA2;
+        }
+
+        [data-theme="dark"] .legend-color.build {
+            background: #66BB6A;
+        }
+
+        [data-theme="dark"] .legend-color.starlark {
+            background: #AB47BC;
+        }
+
+        .key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 10px;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            margin-right: 4px;
+        }
+
+        /* ==================== SUGGESTIONS TAB ==================== */
+        .suggestions-layout {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .suggestions-header {
+            padding: 24px 32px;
+            background: var(--bg-subtle);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .suggestions-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .suggestions-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .suggestions-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 32px;
+        }
+
+        .suggestion-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: box-shadow 0.15s;
+        }
+
+        .suggestion-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .suggestion-card.warning {
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .suggestion-card.info {
+            border-left: 4px solid var(--info-color);
+        }
+
+        .suggestion-card.success {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .suggestion-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .suggestion-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .suggestion-icon.warning {
+            background: var(--warning-bg);
+            color: var(--warning-color);
+        }
+
+        .suggestion-icon.info {
+            background: var(--info-bg);
+            color: var(--info-color);
+        }
+
+        .suggestion-icon.success {
+            background: var(--success-bg);
+            color: var(--success-color);
+        }
+
+        .suggestion-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .suggestion-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .suggestion-impact {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: var(--bg-grid);
+            color: var(--text-secondary);
+        }
+
+        .suggestion-impact.high {
+            background: #FEE2E2;
+            color: #DC2626;
+        }
+
+        .suggestion-impact.medium {
+            background: var(--warning-bg);
+            color: #D97706;
+        }
+
+        .suggestion-body {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .suggestion-target {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+            background: var(--bg-subtle);
+            padding: 6px 10px;
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .suggestion-metrics {
+            display: flex;
+            gap: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--bg-grid);
+            margin-top: 16px;
+        }
+
+        .suggestion-metric {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .suggestion-metric-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-muted);
+        }
+
+        .suggestion-metric-value {
+            font-size: 14px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+        }
+
+        .no-suggestions {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .no-suggestions svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .no-suggestions-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        /* ==================== STATS TAB ==================== */
+        .stats-layout {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .stats-header {
+            padding: 24px 32px;
+            background: var(--bg-subtle);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stats-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .stats-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .stats-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 32px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .stat-card-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .stat-card-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+        }
+
+        .stat-card-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .stats-section {
+            margin-bottom: 32px;
+        }
+
+        .stats-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .stats-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .stats-section-header .stats-section-title {
+            margin-bottom: 0;
+        }
+
+        .group-selector {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-subtle);
+            padding: 4px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .group-selector-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .group-selector-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-white);
+        }
+
+        .group-selector-btn.active {
+            background: var(--bg-white);
+            color: var(--bazel-green);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .stats-table th,
+        .stats-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stats-table th {
+            background: var(--bg-subtle);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .stats-table td {
+            font-size: 13px;
+        }
+
+        .stats-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .stats-table .mono {
+            font-family: var(--font-mono);
+        }
+
+        .text-muted {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        .resource-charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .resource-chart-container {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .resource-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .resource-chart-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .resource-chart-stats {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .resource-chart {
+            width: 100%;
+            height: 120px;
+            display: block;
+        }
+
+        .stats-bar-container {
+            width: 100px;
+            height: 8px;
+            background: var(--bg-grid);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .stats-bar {
+            height: 100%;
+            background: var(--bazel-green);
+            border-radius: 4px;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: #FFFFFF;
+            color: #212121;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 360px;
+            opacity: 0;
+            transition: opacity 0.1s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid #E0E0E0;
+        }
+
+        [data-theme="dark"] .tooltip {
+            background: #2a2a2a;
+            color: #E5E5E5;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border: 1px solid #404040;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: rgba(0, 0, 0, 0.7);
+            margin-top: 4px;
+        }
+
+        [data-theme="dark"] .tooltip-row {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-dark);
+        }
+
+        /* Focus */
+        *:focus-visible {
+            outline: 2px solid var(--bazel-green);
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="brand">
+            <div class="logo-container">
+                <svg class="logo" viewBox="0 0 32 32" fill="none">
+                    <!-- Left floppy ear -->
+                    <ellipse cx="8" cy="10" rx="5" ry="8" fill="#2E7D32"/>
+                    <!-- Right floppy ear -->
+                    <ellipse cx="24" cy="10" rx="5" ry="8" fill="#2E7D32"/>
+                    <!-- Dog face -->
+                    <circle cx="16" cy="16" r="11" fill="#43A047"/>
+                    <!-- Left eye -->
+                    <circle cx="11" cy="14" r="2.5" fill="#1B5E20"/>
+                    <circle cx="11.7" cy="13.3" r="0.8" fill="#fff"/>
+                    <!-- Right eye -->
+                    <circle cx="21" cy="14" r="2.5" fill="#1B5E20"/>
+                    <circle cx="21.7" cy="13.3" r="0.8" fill="#fff"/>
+                    <!-- Snout -->
+                    <ellipse cx="16" cy="20" rx="4" ry="3" fill="#81C784"/>
+                    <!-- Nose -->
+                    <ellipse cx="16" cy="18.5" rx="2" ry="1.5" fill="#1B5E20"/>
+                </svg>
+            </div>
+            <div class="title-group">
+                <span class="title-main">Gangaji</span>
+                <span class="title-sub">Bazel Profiler</span>
+            </div>
+        </div>
+
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="profile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v18h18"/>
+                    <path d="M7 16l4-8 4 4 5-9"/>
+                </svg>
+                Profile
+                <span class="tab-key">1</span>
+            </button>
+            <button class="tab-btn" data-tab="suggestions">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4M12 8h.01"/>
+                </svg>
+                Suggestions
+                <span class="tab-key">2</span>
+            </button>
+            <button class="tab-btn" data-tab="stats">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="10" width="4" height="10"/>
+                    <rect x="10" y="6" width="4" height="14"/>
+                    <rect x="17" y="2" width="4" height="18"/>
+                </svg>
+                Statistics
+                <span class="tab-key">3</span>
+            </button>
+        </div>
+
+        <div class="top-bar-right">
+            <div class="stats-summary">
+                <div class="stat-item">
+                    <span class="stat-label">Duration</span>
+                    <span class="stat-value" id="stat-total">0ms</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Actions</span>
+                    <span class="stat-value" id="stat-actions">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Threads</span>
+                    <span class="stat-value" id="stat-threads">0</span>
+                </div>
+            </div>
+            <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Profile Tab -->
+    <div class="tab-content active" id="tab-profile">
+        <div class="profile-layout">
+            <!-- Left Panel -->
+            <div class="left-panel" id="left-panel">
+                <!-- Collapse Button -->
+                <button class="collapse-btn" id="collapse-btn" title="Toggle panel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+                <div class="search-bar">
+                    <div class="search-wrapper">
+                        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="M21 21l-4.35-4.35"/>
+                        </svg>
+                        <input type="text" class="search-input" id="search-input" placeholder="Search actions...">
+                        <span class="search-count" id="search-count"></span>
+                    </div>
+                </div>
+
+                <div class="details-section">
+                    <div class="section-header">
+                        <span class="section-title">Details</span>
+                    </div>
+                    <div class="details-content">
+                        <div class="details-placeholder" id="details-placeholder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <path d="M12 8v8M8 12h8"/>
+                            </svg>
+                            <span>Click an action to view details</span>
+                        </div>
+                        <div class="details-grid" id="details-grid">
+                            <div class="detail-title-row">
+                                <div class="detail-title-value" id="detail-title">-</div>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Mnemonic</span>
+                                <span class="detail-value mnemonic" id="detail-mnemonic">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Category</span>
+                                <span class="detail-value" id="detail-category">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Thread</span>
+                                <span class="detail-value" id="detail-thread">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Start</span>
+                                <span class="detail-value" id="detail-start">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">End</span>
+                                <span class="detail-value" id="detail-end">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Duration</span>
+                                <span class="detail-value highlight" id="detail-duration">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Self Time</span>
+                                <span class="detail-value" id="detail-self">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="children-section">
+                    <div class="section-header">
+                        <span class="section-title">Children</span>
+                        <span class="section-count" id="children-count">0</span>
+                    </div>
+                    <div class="children-list" id="children-list">
+                        <div class="children-empty" id="children-empty">No children</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Area -->
+            <div class="right-area">
+                <div class="breadcrumb-bar" id="breadcrumb-bar">
+                    <span class="breadcrumb-item current">Root</span>
+                </div>
+
+                <div class="flamegraph-container" id="flamegraph-container">
+                    <canvas id="flamegraph-canvas"></canvas>
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" id="zoom-out" title="Zoom Out">-</button>
+                        <div class="zoom-divider"></div>
+                        <button class="zoom-btn reset" id="zoom-reset">Reset</button>
+                        <div class="zoom-divider"></div>
+                        <button class="zoom-btn" id="zoom-in" title="Zoom In">+</button>
+                    </div>
+                    <div class="keyboard-hint">
+                        <span><span class="key">Click</span>Select</span>
+                        <span><span class="key">DblClick</span>Zoom</span>
+                        <span><span class="key">⌘/Ctrl+Scroll</span>Zoom</span>
+                        <span><span class="key">Shift+Scroll</span>Pan</span>
+                        <span><span class="key">Esc</span>Reset</span>
+                    </div>
+                    <div class="legend" id="legend">
+                        <div class="legend-item">
+                            <div class="legend-color build"></div>
+                            <span>Build</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color starlark"></div>
+                            <span>Starlark</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="time-axis">
+                    <canvas id="time-axis-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suggestions Tab -->
+    <div class="tab-content" id="tab-suggestions">
+        <div class="suggestions-layout">
+            <div class="suggestions-header">
+                <h2 class="suggestions-title">Build Optimization Suggestions</h2>
+                <p class="suggestions-subtitle">Actionable recommendations to improve your build performance</p>
+            </div>
+            <div class="suggestions-content" id="suggestions-content">
+                <!-- Suggestions will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Tab -->
+    <div class="tab-content" id="tab-stats">
+        <div class="stats-layout">
+            <div class="stats-header">
+                <h2 class="stats-title">Build Statistics</h2>
+                <p class="stats-subtitle">Overview of your build profile metrics</p>
+            </div>
+            <div class="stats-content" id="stats-content">
+                <!-- Stats will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title" id="tooltip-title"></div>
+        <div class="tooltip-row">
+            <span id="tooltip-label1">Duration:</span>
+            <span id="tooltip-value1"></span>
+        </div>
+        <div class="tooltip-row">
+            <span id="tooltip-label2">Self Time:</span>
+            <span id="tooltip-value2"></span>
+        </div>
+    </div>
+
+    <script>
+        // Demo data
+        const DEMO_DATA = {
+            traceEvents: [
+                { name: "//src:main", cat: "action", ph: "X", ts: 0, dur: 450000, args: { mnemonic: "CppCompile" } },
+                { name: "//src:utils", cat: "action", ph: "X", ts: 50000, dur: 180000, args: { mnemonic: "CppCompile" } },
+                { name: "//src:parser", cat: "action", ph: "X", ts: 80000, dur: 120000, args: { mnemonic: "CppCompile" } },
+                { name: "//src:lexer", cat: "action", ph: "X", ts: 100000, dur: 80000, args: { mnemonic: "CppCompile" } },
+                { name: "//lib:core", cat: "action", ph: "X", ts: 250000, dur: 200000, args: { mnemonic: "CppCompile" } },
+                { name: "//lib:io", cat: "action", ph: "X", ts: 280000, dur: 140000, args: { mnemonic: "CppCompile" } },
+                { name: "//lib:network", cat: "action", ph: "X", ts: 310000, dur: 100000, args: { mnemonic: "CppCompile" } },
+                { name: "//lib:crypto", cat: "action", ph: "X", ts: 350000, dur: 60000, args: { mnemonic: "CppCompile" } },
+                { name: "//test:unit_tests", cat: "test", ph: "X", ts: 500000, dur: 300000, args: { mnemonic: "TestRunner" } },
+                { name: "//test:parser_test", cat: "test", ph: "X", ts: 520000, dur: 150000, args: { mnemonic: "TestRunner" } },
+                { name: "//test:lexer_test", cat: "test", ph: "X", ts: 540000, dur: 100000, args: { mnemonic: "TestRunner" } },
+                { name: "//test:utils_test", cat: "test", ph: "X", ts: 560000, dur: 80000, args: { mnemonic: "TestRunner" } },
+                { name: "//tools:codegen", cat: "tool", ph: "X", ts: 850000, dur: 150000, args: { mnemonic: "Genrule" } },
+                { name: "//tools:protoc", cat: "tool", ph: "X", ts: 880000, dur: 100000, args: { mnemonic: "ProtoCompile" } },
+                { name: "//tools:formatter", cat: "tool", ph: "X", ts: 920000, dur: 60000, args: { mnemonic: "Genrule" } },
+                { name: "//pkg:bundle", cat: "package", ph: "X", ts: 1050000, dur: 200000, args: { mnemonic: "PackageTar" } },
+                { name: "//pkg:container", cat: "package", ph: "X", ts: 1100000, dur: 130000, args: { mnemonic: "ContainerImage" } },
+                { name: "//pkg:deploy", cat: "package", ph: "X", ts: 1150000, dur: 80000, args: { mnemonic: "DeployJar" } },
+                { name: "//deps:external_lib", cat: "fetch", ph: "X", ts: 1300000, dur: 250000, args: { mnemonic: "HttpArchive" } },
+                { name: "//deps:maven_deps", cat: "fetch", ph: "X", ts: 1350000, dur: 180000, args: { mnemonic: "MavenFetch" } },
+                { name: "//deps:npm_install", cat: "fetch", ph: "X", ts: 1400000, dur: 120000, args: { mnemonic: "NpmInstall" } },
+                { name: "//build:link_main", cat: "link", ph: "X", ts: 1600000, dur: 180000, args: { mnemonic: "CppLink" } },
+                { name: "//build:link_shared", cat: "link", ph: "X", ts: 1650000, dur: 100000, args: { mnemonic: "CppLink" } },
+                { name: "//build:link_static", cat: "link", ph: "X", ts: 1700000, dur: 60000, args: { mnemonic: "CppLink" } },
+            ]
+        };
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(`tab-${tab}`).classList.add('active');
+
+                if (tab === 'profile' && window.flameGraph) {
+                    setTimeout(() => {
+                        window.flameGraph.setupCanvas();
+                        window.flameGraph.render();
+                    }, 10);
+                }
+
+                if (tab === 'stats' && window.flameGraph) {
+                    setTimeout(() => {
+                        window.flameGraph.renderResourceCharts();
+                    }, 50);
+                }
+            });
+        });
+
+        // Collapse panel toggle
+        document.getElementById('collapse-btn').addEventListener('click', () => {
+            const panel = document.getElementById('left-panel');
+            panel.classList.toggle('collapsed');
+            // Trigger resize to redraw flamegraph
+            if (window.flameGraph) {
+                setTimeout(() => {
+                    window.flameGraph.setupCanvas();
+                    window.flameGraph.render();
+                }, 250);
+            }
+        });
+
+        // Keyboard shortcuts for tabs
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === '1') document.querySelector('[data-tab="profile"]').click();
+            if (e.key === '2') document.querySelector('[data-tab="suggestions"]').click();
+            if (e.key === '3') document.querySelector('[data-tab="stats"]').click();
+        });
+
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme === 'dark' ? 'dark' : '');
+            localStorage.setItem('theme', newTheme);
+            // Redraw flamegraph with new colors
+            if (window.flameGraph) {
+                window.flameGraph.render();
+            }
+        });
+
+        class FlameGraph {
+            constructor() {
+                this.canvas = document.getElementById('flamegraph-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.axisCanvas = document.getElementById('time-axis-canvas');
+                this.axisCtx = this.axisCanvas.getContext('2d');
+                this.container = document.getElementById('flamegraph-container');
+                this.tooltip = document.getElementById('tooltip');
+
+                this.data = window.BAZEL_PROFILE_DATA || DEMO_DATA;
+                this.frames = [];
+                this.threads = [];
+                this.threadNames = {};
+                this.collapsedThreads = new Set();
+                this.selectedFrame = null;
+                this.hoveredFrame = null;
+                this.searchMatches = [];
+                this.searchTerm = '';
+
+                this.viewStart = 0;
+                this.viewEnd = 0;
+                this.zoomStack = [];
+                this.rowHeight = 24;
+                this.threadHeaderHeight = 28;
+                this.padding = 2;
+
+                this.init();
+            }
+
+            init() {
+                this.processData();
+                this.setupCanvas();
+                this.bindEvents();
+                this.render();
+                this.updateStats();
+                this.generateSuggestions();
+                this.generateStats();
+            }
+
+            processData() {
+                // Use pre-processed thread metadata from Go server
+                const threadMetadata = this.data.threadMetadata || {};
+                const mainThreadTid = this.data.mainThreadTid ?? null;
+
+                // Store counter events for statistics (memory, network, etc.)
+                this.counterEvents = this.data.counterEvents || [];
+
+                // Build thread names map from metadata
+                this.threadNames = {};
+                for (const [tid, meta] of Object.entries(threadMetadata)) {
+                    if (meta.name) {
+                        this.threadNames[parseInt(tid)] = meta.name;
+                    }
+                }
+
+                // Build sort indices map from metadata
+                const threadSortIndices = new Map();
+                for (const [tid, meta] of Object.entries(threadMetadata)) {
+                    if (meta.sortIndex !== undefined && meta.sortIndex !== null) {
+                        threadSortIndices.set(parseInt(tid), meta.sortIndex);
+                    }
+                }
+
+                const events = this.data.traceEvents.filter(e => e.ph === 'X' && e.dur > 0);
+
+                let minTs = Infinity, maxTs = 0;
+                events.forEach(e => {
+                    minTs = Math.min(minTs, e.ts);
+                    maxTs = Math.max(maxTs, e.ts + e.dur);
+                });
+
+                // Group events by thread
+                const eventsByThread = new Map();
+                events.forEach((e, i) => {
+                    const tid = e.tid ?? 0;
+                    if (!eventsByThread.has(tid)) {
+                        eventsByThread.set(tid, []);
+                    }
+                    eventsByThread.get(tid).push({
+                        id: i,
+                        tid: tid,
+                        name: e.name || 'Unknown',
+                        category: e.cat || 'other',
+                        mnemonic: e.args?.mnemonic || '-',
+                        start: (e.ts - minTs) / 1000,
+                        duration: e.dur / 1000,
+                        end: (e.ts - minTs + e.dur) / 1000,
+                        depth: 0,
+                        selfTime: e.dur / 1000,
+                        children: [],
+                        raw: e
+                    });
+                });
+
+                // Sort threads: main thread first, critical path second, then skyframe-evaluator-execution before skyframe-evaluator
+                const sortedTids = Array.from(eventsByThread.keys()).sort((a, b) => {
+                    const nameA = this.threadNames[a] || '';
+                    const nameB = this.threadNames[b] || '';
+
+                    // Main thread always first (from Go server, fallback to tid 0)
+                    const isMainA = mainThreadTid !== null ? a === mainThreadTid : (a === 0);
+                    const isMainB = mainThreadTid !== null ? b === mainThreadTid : (b === 0);
+                    if (isMainA && !isMainB) return -1;
+                    if (isMainB && !isMainA) return 1;
+
+                    // Critical path second
+                    const isCriticalA = nameA.toLowerCase().includes('critical path');
+                    const isCriticalB = nameB.toLowerCase().includes('critical path');
+                    if (isCriticalA && !isCriticalB) return -1;
+                    if (isCriticalB && !isCriticalA) return 1;
+
+                    // skyframe-evaluator-execution before skyframe-evaluator
+                    const isSkyframeExecA = nameA.includes('skyframe-evaluator-execution');
+                    const isSkyframeExecB = nameB.includes('skyframe-evaluator-execution');
+                    const isSkyframeA = nameA.includes('skyframe-evaluator') && !isSkyframeExecA;
+                    const isSkyframeB = nameB.includes('skyframe-evaluator') && !isSkyframeExecB;
+
+                    if (isSkyframeExecA && isSkyframeB) return -1;
+                    if (isSkyframeExecB && isSkyframeA) return 1;
+
+                    // Then by thread_sort_index (lower index = higher priority)
+                    const sortIndexA = threadSortIndices.get(a);
+                    const sortIndexB = threadSortIndices.get(b);
+                    if (sortIndexA !== undefined && sortIndexB !== undefined) {
+                        return sortIndexA - sortIndexB;
+                    }
+                    if (sortIndexA !== undefined) return -1;
+                    if (sortIndexB !== undefined) return 1;
+
+                    // Finally by event count (most events first)
+                    return eventsByThread.get(b).length - eventsByThread.get(a).length;
+                });
+
+                // Build thread structure with frames
+                this.threads = [];
+                this.frames = [];
+                this.threadMarginWidth = 24; // Width for vertical thread labels
+                this.scrollY = 0;
+
+                sortedTids.forEach((tid, index) => {
+                    const threadFrames = eventsByThread.get(tid);
+                    threadFrames.sort((a, b) => a.start - b.start || b.duration - a.duration);
+
+                    // Calculate depths within this thread
+                    const levels = [];
+                    threadFrames.forEach(frame => {
+                        let depth = 0;
+                        while (depth < levels.length && frame.start < levels[depth]) {
+                            depth++;
+                        }
+                        frame.depth = depth;
+                        levels[depth] = frame.end;
+                    });
+
+                    const maxDepth = threadFrames.length > 0
+                        ? Math.max(...threadFrames.map(f => f.depth)) + 1
+                        : 1;
+
+                    const thread = {
+                        tid: tid,
+                        name: this.threadNames[tid] || `Thread ${tid}`,
+                        shortName: this.getShortThreadName(tid),
+                        frames: threadFrames,
+                        maxDepth: maxDepth,
+                        eventCount: threadFrames.length,
+                        index: index
+                    };
+
+                    this.threads.push(thread);
+                    this.frames.push(...threadFrames);
+                });
+
+                // Calculate thread Y positions
+                this.calculateThreadPositions();
+
+                // Build child relationships
+                this.buildChildRelationships();
+
+                this.totalTime = (maxTs - minTs) / 1000;
+                this.viewStart = 0;
+                this.viewEnd = this.totalTime;
+            }
+
+            getShortThreadName(tid) {
+                const name = this.threadNames[tid];
+                if (name && name.length > 12) {
+                    return name.substring(0, 10) + '...';
+                }
+                return name || `T${tid}`;
+            }
+
+            calculateThreadPositions() {
+                const gridSize = 40; // Align with background grid
+                let currentY = 0;
+                this.threads.forEach(thread => {
+                    thread.y = currentY;
+                    // Calculate base height and round up to next grid boundary
+                    const baseHeight = thread.maxDepth * this.rowHeight;
+                    thread.height = Math.ceil(baseHeight / gridSize) * gridSize;
+                    currentY += thread.height;
+                });
+                this.totalHeight = currentY;
+            }
+
+            buildChildRelationships() {
+                // Build relationships within each thread
+                this.threads.forEach(thread => {
+                    thread.frames.forEach(frame => {
+                        frame.children = thread.frames.filter(other =>
+                            other !== frame &&
+                            other.depth === frame.depth + 1 &&
+                            other.start >= frame.start &&
+                            other.end <= frame.end
+                        ).sort((a, b) => b.duration - a.duration);
+                    });
+
+                    thread.frames.forEach(frame => {
+                        const childTime = frame.children.reduce((sum, c) => sum + c.duration, 0);
+                        frame.selfTime = Math.max(0, frame.duration - childTime);
+                    });
+                });
+            }
+
+            setupCanvas() {
+                const dpr = window.devicePixelRatio || 1;
+                const rect = this.container.getBoundingClientRect();
+
+                this.canvas.width = rect.width * dpr;
+                this.canvas.height = rect.height * dpr;
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+                this.ctx.scale(dpr, dpr);
+
+                this.width = rect.width;
+                this.height = rect.height;
+
+                const axisRect = this.axisCanvas.parentElement.getBoundingClientRect();
+                this.axisCanvas.width = axisRect.width * dpr;
+                this.axisCanvas.height = axisRect.height * dpr;
+                this.axisCanvas.style.width = axisRect.width + 'px';
+                this.axisCanvas.style.height = axisRect.height + 'px';
+                this.axisCtx.scale(dpr, dpr);
+                this.axisWidth = axisRect.width;
+                this.axisHeight = axisRect.height;
+            }
+
+            bindEvents() {
+                window.addEventListener('resize', () => {
+                    this.setupCanvas();
+                    this.render();
+                });
+
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.canvas.addEventListener('mouseleave', () => this.handleMouseLeave());
+                this.canvas.addEventListener('click', (e) => this.handleClick(e));
+                this.canvas.addEventListener('dblclick', (e) => this.handleDoubleClick(e));
+                this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+
+                document.getElementById('zoom-in').addEventListener('click', () => this.zoom(0.5));
+                document.getElementById('zoom-out').addEventListener('click', () => this.zoom(2));
+                document.getElementById('zoom-reset').addEventListener('click', () => this.resetZoom());
+
+                document.getElementById('search-input').addEventListener('input', (e) => this.search(e.target.value));
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT') return;
+                    if (e.key === 'Escape') this.resetZoom();
+                });
+            }
+
+            handleMouseMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Check if hovering over thread label area
+                if (x < this.threadMarginWidth) {
+                    const thread = this.getThreadAt(y);
+                    if (thread) {
+                        this.canvas.style.cursor = 'default';
+                        this.hoveredFrame = null;
+                        this.showThreadTooltip(e.clientX, e.clientY, thread);
+                        return;
+                    }
+                }
+
+                this.canvas.style.cursor = 'default';
+                const frame = this.getFrameAt(x, y);
+
+                if (frame !== this.hoveredFrame) {
+                    this.hoveredFrame = frame;
+                    this.render();
+                }
+
+                if (frame) {
+                    this.showTooltip(e.clientX, e.clientY, frame);
+                } else {
+                    this.hideTooltip();
+                }
+            }
+
+            handleMouseLeave() {
+                this.hoveredFrame = null;
+                this.hideTooltip();
+                this.render();
+            }
+
+            handleClick(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const frame = this.getFrameAt(x, y);
+                this.selectFrame(frame);
+            }
+
+            handleDoubleClick(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const frame = this.getFrameAt(x, y);
+                if (frame) this.zoomToFrame(frame);
+            }
+
+            handleWheel(e) {
+                e.preventDefault();
+
+                // Ctrl/Cmd + wheel = horizontal zoom at cursor position
+                if (e.ctrlKey || e.metaKey) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const marginWidth = this.threadMarginWidth;
+
+                    // Calculate time position under cursor
+                    const graphWidth = this.width - marginWidth;
+                    const timeRange = this.viewEnd - this.viewStart;
+                    const cursorTime = this.viewStart + ((x - marginWidth) / graphWidth) * timeRange;
+
+                    // Zoom factor (scroll up = zoom in, scroll down = zoom out)
+                    const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85;
+                    const newRange = timeRange * zoomFactor;
+
+                    // Calculate new start/end keeping cursor position fixed
+                    const cursorRatio = (x - marginWidth) / graphWidth;
+                    let newStart = cursorTime - newRange * cursorRatio;
+                    let newEnd = cursorTime + newRange * (1 - cursorRatio);
+
+                    // Clamp to valid range
+                    if (newStart < 0) {
+                        newEnd -= newStart;
+                        newStart = 0;
+                    }
+                    if (newEnd > this.totalTime) {
+                        newStart -= (newEnd - this.totalTime);
+                        newEnd = this.totalTime;
+                    }
+                    newStart = Math.max(0, newStart);
+                    newEnd = Math.min(this.totalTime, newEnd);
+
+                    // Don't zoom out beyond full view
+                    if (newEnd - newStart >= this.totalTime) {
+                        this.viewStart = 0;
+                        this.viewEnd = this.totalTime;
+                    } else {
+                        this.viewStart = newStart;
+                        this.viewEnd = newEnd;
+                    }
+
+                    this.render();
+                    return;
+                }
+
+                // Shift + wheel = horizontal pan
+                if (e.shiftKey) {
+                    const timeRange = this.viewEnd - this.viewStart;
+                    const panAmount = timeRange * 0.1 * (e.deltaY > 0 ? 1 : -1);
+                    let newStart = this.viewStart + panAmount;
+                    let newEnd = this.viewEnd + panAmount;
+
+                    // Clamp to valid range
+                    if (newStart < 0) {
+                        newEnd -= newStart;
+                        newStart = 0;
+                    }
+                    if (newEnd > this.totalTime) {
+                        newStart -= (newEnd - this.totalTime);
+                        newEnd = this.totalTime;
+                    }
+
+                    this.viewStart = Math.max(0, newStart);
+                    this.viewEnd = Math.min(this.totalTime, newEnd);
+                    this.render();
+                    return;
+                }
+
+                // Regular wheel = vertical scroll
+                const delta = e.deltaY;
+                const maxScroll = Math.max(0, this.totalHeight - this.height);
+                this.scrollY = Math.max(0, Math.min(maxScroll, this.scrollY + delta));
+                this.render();
+            }
+
+            getFrameAt(x, y) {
+                const marginWidth = this.threadMarginWidth;
+
+                // Ignore clicks in the margin area
+                if (x < marginWidth) return null;
+
+                const timeRange = this.viewEnd - this.viewStart;
+                const graphWidth = this.width - marginWidth;
+                const time = this.viewStart + ((x - marginWidth) / graphWidth) * timeRange;
+
+                // Find frame at position in swim lane layout
+                for (const thread of this.threads) {
+                    const threadY = thread.y - this.scrollY;
+
+                    // Check if y is within this thread's area
+                    if (y < threadY || y >= threadY + thread.height) continue;
+
+                    for (const frame of thread.frames) {
+                        if (frame.renderY === undefined) continue;
+                        if (frame.end < this.viewStart || frame.start > this.viewEnd) continue;
+
+                        const frameTop = frame.renderY;
+                        const frameBottom = frameTop + this.rowHeight - this.padding;
+
+                        if (y >= frameTop && y < frameBottom &&
+                            frame.start <= time && frame.end >= time) {
+                            return frame;
+                        }
+                    }
+                }
+                return null;
+            }
+
+            getThreadAt(y) {
+                for (const thread of this.threads) {
+                    const threadY = thread.y - this.scrollY;
+                    if (y >= threadY && y < threadY + thread.height) {
+                        return thread;
+                    }
+                }
+                return null;
+            }
+
+            selectFrame(frame) {
+                this.selectedFrame = frame;
+                this.render();
+                this.updateDetails(frame);
+                this.updateChildren(frame);
+            }
+
+            zoomToFrame(frame) {
+                // Check if this frame is already a parent in the zoom stack (zoom out case)
+                const parentIndex = this.zoomStack.findIndex(state =>
+                    state.targetStart === frame.start && state.targetEnd === frame.end
+                );
+
+                if (parentIndex !== -1) {
+                    // Zoom out to this level
+                    const targetState = this.zoomStack[parentIndex];
+                    this.zoomStack = this.zoomStack.slice(0, parentIndex);
+                    this.animateZoom(frame.start, frame.end);
+                    this.updateBreadcrumb();
+                    return;
+                }
+
+                // Normal zoom in
+                this.zoomStack.push({
+                    start: this.viewStart,
+                    end: this.viewEnd,
+                    targetStart: frame.start,
+                    targetEnd: frame.end,
+                    name: frame.name
+                });
+                this.animateZoom(frame.start, frame.end);
+                this.updateBreadcrumb();
+            }
+
+            animateZoom(targetStart, targetEnd) {
+                const startState = { start: this.viewStart, end: this.viewEnd };
+                const duration = 200;
+                const startTime = performance.now();
+
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+
+                    this.viewStart = startState.start + (targetStart - startState.start) * eased;
+                    this.viewEnd = startState.end + (targetEnd - startState.end) * eased;
+                    this.render();
+
+                    if (progress < 1) requestAnimationFrame(animate);
+                };
+
+                requestAnimationFrame(animate);
+            }
+
+            zoom(factor) {
+                const center = (this.viewStart + this.viewEnd) / 2;
+                const range = (this.viewEnd - this.viewStart) * factor;
+                const newStart = Math.max(0, center - range / 2);
+                const newEnd = Math.min(this.totalTime, center + range / 2);
+
+                if (factor < 1) {
+                    this.zoomStack.push({ start: this.viewStart, end: this.viewEnd });
+                }
+
+                this.animateZoom(newStart, newEnd);
+                this.updateBreadcrumb();
+            }
+
+            resetZoom() {
+                this.zoomStack = [];
+                this.animateZoom(0, this.totalTime);
+                this.updateBreadcrumb();
+            }
+
+            search(term) {
+                this.searchTerm = term.toLowerCase();
+
+                if (!term) {
+                    this.searchMatches = [];
+                    document.getElementById('search-count').textContent = '';
+                } else {
+                    this.searchMatches = this.frames.filter(f =>
+                        f.name.toLowerCase().includes(this.searchTerm) ||
+                        f.mnemonic.toLowerCase().includes(this.searchTerm)
+                    );
+                    document.getElementById('search-count').textContent = this.searchMatches.length;
+                }
+
+                this.render();
+            }
+
+            showTooltip(x, y, frame) {
+                this.tooltip.classList.add('visible');
+                document.getElementById('tooltip-title').textContent = frame.name;
+                document.getElementById('tooltip-label1').textContent = 'Duration:';
+                document.getElementById('tooltip-value1').textContent = this.formatTime(frame.duration);
+                document.getElementById('tooltip-label2').textContent = 'Self Time:';
+                document.getElementById('tooltip-value2').textContent = this.formatTime(frame.selfTime);
+
+                const rect = this.tooltip.getBoundingClientRect();
+                let left = x + 12;
+                let top = y + 12;
+
+                if (left + rect.width > window.innerWidth) left = x - rect.width - 12;
+                if (top + rect.height > window.innerHeight) top = y - rect.height - 12;
+
+                this.tooltip.style.left = left + 'px';
+                this.tooltip.style.top = top + 'px';
+            }
+
+            showThreadTooltip(x, y, thread) {
+                const threadName = this.threadNames[thread.tid] || `Thread`;
+                const frameCount = thread.frames.length;
+
+                // Calculate total duration of frames in this thread
+                let totalDuration = 0;
+                for (const frame of thread.frames) {
+                    totalDuration += frame.duration;
+                }
+
+                this.tooltip.classList.add('visible');
+                document.getElementById('tooltip-title').textContent = `${threadName} (tid: ${thread.tid})`;
+                document.getElementById('tooltip-label1').textContent = 'Frames:';
+                document.getElementById('tooltip-value1').textContent = frameCount;
+                document.getElementById('tooltip-label2').textContent = 'Total Time:';
+                document.getElementById('tooltip-value2').textContent = this.formatTime(totalDuration);
+
+                const rect = this.tooltip.getBoundingClientRect();
+                let left = x + 12;
+                let top = y + 12;
+
+                if (left + rect.width > window.innerWidth) left = x - rect.width - 12;
+                if (top + rect.height > window.innerHeight) top = y - rect.height - 12;
+
+                this.tooltip.style.left = left + 'px';
+                this.tooltip.style.top = top + 'px';
+            }
+
+            hideTooltip() {
+                this.tooltip.classList.remove('visible');
+            }
+
+            updateDetails(frame) {
+                const placeholder = document.getElementById('details-placeholder');
+                const grid = document.getElementById('details-grid');
+
+                if (!frame) {
+                    placeholder.style.display = 'flex';
+                    grid.classList.remove('visible');
+                    return;
+                }
+
+                placeholder.style.display = 'none';
+                grid.classList.add('visible');
+
+                document.getElementById('detail-title').textContent = frame.name;
+                document.getElementById('detail-mnemonic').textContent = frame.mnemonic;
+                document.getElementById('detail-category').textContent = frame.category;
+                document.getElementById('detail-thread').textContent = this.threadNames[frame.tid] || `Thread ${frame.tid}`;
+                document.getElementById('detail-start').textContent = this.formatTime(frame.start);
+                document.getElementById('detail-end').textContent = this.formatTime(frame.end);
+                document.getElementById('detail-duration').textContent = this.formatTime(frame.duration);
+                document.getElementById('detail-self').textContent = this.formatTime(frame.selfTime);
+            }
+
+            updateChildren(frame) {
+                const list = document.getElementById('children-list');
+                const count = document.getElementById('children-count');
+
+                // Clear previous children (but keep structure)
+                list.innerHTML = '<div class="children-empty" id="children-empty">No children</div>';
+                const empty = document.getElementById('children-empty');
+
+                if (!frame || frame.children.length === 0) {
+                    empty.style.display = 'flex';
+                    count.textContent = '0';
+                    return;
+                }
+
+                empty.style.display = 'none';
+                count.textContent = frame.children.length;
+
+                const maxDur = Math.max(...frame.children.map(c => c.duration));
+
+                const childrenHtml = frame.children.map(child => {
+                    const barWidth = (child.duration / maxDur) * 100;
+                    return `
+                        <div class="child-item" data-id="${child.id}">
+                            <div class="child-info">
+                                <div class="child-name">${this.escapeHtml(child.name)}</div>
+                                <div class="child-bar-container">
+                                    <div class="child-bar" style="width: ${barWidth}%"></div>
+                                </div>
+                            </div>
+                            <div class="child-duration">${this.formatTime(child.duration)}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                list.innerHTML = childrenHtml;
+
+                list.querySelectorAll('.child-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const id = parseInt(item.dataset.id);
+                        const childFrame = this.frames.find(f => f.id === id);
+                        if (childFrame) this.selectFrame(childFrame);
+                    });
+                });
+            }
+
+            updateBreadcrumb() {
+                const bar = document.getElementById('breadcrumb-bar');
+
+                if (this.zoomStack.length === 0) {
+                    bar.classList.remove('visible');
+                    return;
+                }
+
+                bar.classList.add('visible');
+                bar.innerHTML = '';
+
+                const rootItem = document.createElement('span');
+                rootItem.className = 'breadcrumb-item';
+                rootItem.textContent = 'Root';
+                rootItem.addEventListener('click', () => this.resetZoom());
+                bar.appendChild(rootItem);
+
+                this.zoomStack.forEach((state, i) => {
+                    const sep = document.createElement('span');
+                    sep.className = 'breadcrumb-sep';
+                    sep.textContent = '›';
+                    bar.appendChild(sep);
+
+                    const item = document.createElement('span');
+                    item.className = 'breadcrumb-item' + (i === this.zoomStack.length - 1 ? ' current' : '');
+                    // Show frame name, truncated if too long
+                    const name = state.name || `Level ${i + 1}`;
+                    item.textContent = name.length > 30 ? name.slice(0, 27) + '...' : name;
+                    item.title = name; // Full name on hover
+                    item.addEventListener('click', () => {
+                        // Zoom to this level
+                        const targetState = this.zoomStack[i];
+                        this.zoomStack = this.zoomStack.slice(0, i + 1);
+                        this.animateZoom(targetState.targetStart, targetState.targetEnd);
+                        this.updateBreadcrumb();
+                    });
+                    bar.appendChild(item);
+                });
+            }
+
+            updateStats() {
+                document.getElementById('stat-total').textContent = this.formatTime(this.totalTime);
+                document.getElementById('stat-actions').textContent = this.frames.length;
+
+                // Update thread count if stat element exists
+                const threadStat = document.getElementById('stat-threads');
+                if (threadStat) {
+                    threadStat.textContent = this.threads.length;
+                }
+
+                // Show legend only if there are starlark events
+                const hasStarlark = this.frames.some(f => f.category === 'starlark');
+                document.getElementById('legend').style.display = hasStarlark ? 'flex' : 'none';
+            }
+
+            async generateSuggestions() {
+                // Fetch suggestions from API (server-side Datalog rules)
+                try {
+                    const response = await fetch('/api/suggestions');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data && data.suggestions) {
+                            this.renderSuggestions(data.suggestions);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch suggestions from API:', e);
+                }
+
+                // Show empty state if no suggestions
+                this.renderSuggestions([]);
+            }
+
+            renderSuggestions(suggestions) {
+                const container = document.getElementById('suggestions-content');
+
+                if (!suggestions || suggestions.length === 0) {
+                    container.innerHTML = `
+                        <div class="suggestion-card success">
+                            <div class="suggestion-header">
+                                <div class="suggestion-icon success">
+                                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                </div>
+                                <div class="suggestion-title">Build looks healthy</div>
+                                <div class="suggestion-impact low">LOW</div>
+                            </div>
+                            <div class="suggestion-body">No actionable suggestions detected. Your build appears to be well-optimized.</div>
+                            <div class="suggestion-target">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                                Overall build
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = suggestions.map(s => `
+                    <div class="suggestion-card ${s.type}">
+                        <div class="suggestion-header">
+                            <div class="suggestion-icon ${s.type}">
+                                ${s.type === 'warning' ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 4l7.5 13h-15L12 6zm-1 4v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>' : ''}
+                                ${s.type === 'info' ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>' : ''}
+                                ${s.type === 'success' ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' : ''}
+                            </div>
+                            <div class="suggestion-title">${s.title}</div>
+                            <div class="suggestion-impact ${s.impact}">${s.impact.toUpperCase()}</div>
+                        </div>
+                        <div class="suggestion-body">${s.body}</div>
+                        <div class="suggestion-target">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            ${s.target}
+                        </div>
+                        <div class="suggestion-metrics">
+                            ${s.metrics.map(m => `
+                                <div class="suggestion-metric">
+                                    <span class="suggestion-metric-label">${m.label}</span>
+                                    <span class="suggestion-metric-value">${m.value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            generateStats() {
+                const container = document.getElementById('stats-content');
+
+                // Group by category
+                const byCategory = {};
+                this.frames.forEach(f => {
+                    if (!byCategory[f.category]) byCategory[f.category] = { count: 0, time: 0 };
+                    byCategory[f.category].count++;
+                    byCategory[f.category].time += f.duration;
+                });
+
+                // Group by mnemonic
+                const byMnemonic = {};
+                this.frames.forEach(f => {
+                    if (!byMnemonic[f.mnemonic]) byMnemonic[f.mnemonic] = { count: 0, time: 0 };
+                    byMnemonic[f.mnemonic].count++;
+                    byMnemonic[f.mnemonic].time += f.duration;
+                });
+
+                // Group by name
+                const byName = {};
+                this.frames.forEach(f => {
+                    if (!byName[f.name]) byName[f.name] = { count: 0, time: 0 };
+                    byName[f.name].count++;
+                    byName[f.name].time += f.duration;
+                });
+
+                const criticalPath = [...this.frames].sort((a, b) => b.end - a.end)[0]?.end || 0;
+
+                // Calculate total CPU time (sum of all frame durations) for percentage calculation
+                const totalCpuTime = this.frames.reduce((sum, f) => sum + f.duration, 0);
+
+                // Store stats data for table updates
+                this.statsData = {
+                    category: Object.entries(byCategory).sort((a, b) => b[1].time - a[1].time),
+                    mnemonic: Object.entries(byMnemonic).sort((a, b) => b[1].time - a[1].time),
+                    name: Object.entries(byName).sort((a, b) => b[1].time - a[1].time)
+                };
+                this.totalCpuTime = totalCpuTime;
+                this.currentGrouping = 'category';
+
+                container.innerHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-card-label">Wall Time</div>
+                            <div class="stat-card-value">${this.formatTime(this.totalTime)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">Total Actions</div>
+                            <div class="stat-card-value">${this.frames.length}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">Total CPU Time</div>
+                            <div class="stat-card-value">${this.formatTime(totalCpuTime)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">Critical Path</div>
+                            <div class="stat-card-value">${this.formatTime(criticalPath)}</div>
+                        </div>
+                    </div>
+
+                    ${this.generateResourceStats()}
+
+                    <div class="stats-section">
+                        <div class="stats-section-header">
+                            <h3 class="stats-section-title">Time Breakdown</h3>
+                            <div class="group-selector">
+                                <button class="group-selector-btn active" data-group="category">Category</button>
+                                <button class="group-selector-btn" data-group="mnemonic">Mnemonic</button>
+                                <button class="group-selector-btn" data-group="name">Name</button>
+                            </div>
+                        </div>
+                        <table class="stats-table">
+                            <thead>
+                                <tr>
+                                    <th id="stats-group-header">Category</th>
+                                    <th>Actions</th>
+                                    <th>Total Time</th>
+                                    <th>% of Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="stats-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                // Setup group selector event listeners
+                container.querySelectorAll('.group-selector-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        container.querySelectorAll('.group-selector-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.currentGrouping = btn.dataset.group;
+                        this.updateStatsTable();
+                    });
+                });
+
+                // Initial table render
+                this.updateStatsTable();
+            }
+
+            updateStatsTable() {
+                const tbody = document.getElementById('stats-table-body');
+                const header = document.getElementById('stats-group-header');
+                if (!tbody || !this.statsData) return;
+
+                const data = this.statsData[this.currentGrouping];
+                const displayData = this.currentGrouping === 'name' ? data.slice(0, 50) : data;
+
+                // Update header
+                const headerLabels = { category: 'Category', mnemonic: 'Mnemonic', name: 'Name' };
+                header.textContent = headerLabels[this.currentGrouping];
+
+                tbody.innerHTML = displayData.map(([key, info]) => {
+                    const percent = (info.time / this.totalCpuTime) * 100;
+                    return `
+                        <tr>
+                            <td><strong>${key}</strong></td>
+                            <td class="mono">${info.count}</td>
+                            <td class="mono">${this.formatTime(info.time)}</td>
+                            <td class="mono">${percent.toFixed(1)}%</td>
+                            <td>
+                                <div class="stats-bar-container">
+                                    <div class="stats-bar" style="width: ${percent}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            generateResourceStats() {
+                if (!this.counterEvents || this.counterEvents.length === 0) {
+                    return '';
+                }
+
+                // Group counter events by name and key for time series
+                const timeSeries = {};
+                this.counterEvents.forEach(event => {
+                    for (const [key, value] of Object.entries(event.args || {})) {
+                        if (typeof value === 'number') {
+                            const seriesKey = `${event.name}|${key}`;
+                            if (!timeSeries[seriesKey]) {
+                                timeSeries[seriesKey] = {
+                                    name: event.name,
+                                    key: key,
+                                    points: []
+                                };
+                            }
+                            timeSeries[seriesKey].points.push({ ts: event.ts, value });
+                        }
+                    }
+                });
+
+                // Sort points by timestamp and calculate stats
+                const metrics = [];
+                for (const [seriesKey, series] of Object.entries(timeSeries)) {
+                    series.points.sort((a, b) => a.ts - b.ts);
+                    const values = series.points.map(p => p.value);
+
+                    if (values.length === 0) continue;
+
+                    metrics.push({
+                        name: series.name,
+                        key: series.key,
+                        points: series.points,
+                        min: Math.min(...values),
+                        max: Math.max(...values),
+                        avg: values.reduce((a, b) => a + b, 0) / values.length,
+                        last: values[values.length - 1],
+                        samples: values.length
+                    });
+                }
+
+                if (metrics.length === 0) {
+                    return '';
+                }
+
+                // Filter to show important metrics with charts
+                const chartMetrics = metrics.filter(m =>
+                    m.key.toLowerCase().includes('memory') ||
+                    m.key.toLowerCase().includes('cpu') ||
+                    m.key.toLowerCase().includes('network') ||
+                    m.key.toLowerCase().includes('load')
+                );
+
+                // Store metrics for chart rendering
+                this.resourceMetrics = chartMetrics;
+
+                const chartIds = chartMetrics.map((m, i) => `resource-chart-${i}`);
+
+                // Schedule chart rendering after DOM update
+                setTimeout(() => this.renderResourceCharts(), 0);
+
+                return `
+                    <div class="stats-section">
+                        <h3 class="stats-section-title">Resource Usage Over Time</h3>
+                        <div class="resource-charts">
+                            ${chartMetrics.map((m, i) => `
+                                <div class="resource-chart-container">
+                                    <div class="resource-chart-header">
+                                        <span class="resource-chart-title">${this.escapeHtml(m.name)}</span>
+                                        <span class="resource-chart-stats">
+                                            Min: ${this.formatResourceValue(m.key, m.min)} |
+                                            Max: ${this.formatResourceValue(m.key, m.max)} |
+                                            Avg: ${this.formatResourceValue(m.key, m.avg)}
+                                        </span>
+                                    </div>
+                                    <canvas id="resource-chart-${i}" class="resource-chart" width="400" height="100"></canvas>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderResourceCharts() {
+                if (!this.resourceMetrics) return;
+
+                const isDark = this.isDarkMode();
+                const lineColor = isDark ? '#66BB6A' : '#43A047';
+                const fillColor = isDark ? 'rgba(102, 187, 106, 0.2)' : 'rgba(67, 160, 71, 0.15)';
+                const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                const textColor = isDark ? '#A3A3A3' : '#666666';
+
+                this.resourceMetrics.forEach((metric, i) => {
+                    const canvas = document.getElementById(`resource-chart-${i}`);
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+                    const rect = canvas.getBoundingClientRect();
+                    canvas.width = rect.width * window.devicePixelRatio;
+                    canvas.height = rect.height * window.devicePixelRatio;
+                    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+                    const width = rect.width;
+                    const height = rect.height;
+                    const padding = { top: 10, right: 10, bottom: 20, left: 50 };
+                    const chartWidth = width - padding.left - padding.right;
+                    const chartHeight = height - padding.top - padding.bottom;
+
+                    // Clear canvas
+                    ctx.clearRect(0, 0, width, height);
+
+                    const points = metric.points;
+                    if (points.length < 2) return;
+
+                    const minTs = points[0].ts;
+                    const maxTs = points[points.length - 1].ts;
+                    const minVal = metric.min;
+                    const maxVal = metric.max;
+                    const valRange = maxVal - minVal || 1;
+
+                    // Draw grid lines
+                    ctx.strokeStyle = gridColor;
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i <= 4; i++) {
+                        const y = padding.top + (i / 4) * chartHeight;
+                        ctx.beginPath();
+                        ctx.moveTo(padding.left, y);
+                        ctx.lineTo(width - padding.right, y);
+                        ctx.stroke();
+                    }
+
+                    // Draw Y-axis labels
+                    ctx.fillStyle = textColor;
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'middle';
+                    for (let i = 0; i <= 4; i++) {
+                        const val = maxVal - (i / 4) * valRange;
+                        const y = padding.top + (i / 4) * chartHeight;
+                        ctx.fillText(this.formatResourceValue(metric.key, val), padding.left - 5, y);
+                    }
+
+                    // Draw X-axis labels (time)
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    const timeRange = maxTs - minTs;
+                    for (let i = 0; i <= 4; i++) {
+                        const ts = minTs + (i / 4) * timeRange;
+                        const x = padding.left + (i / 4) * chartWidth;
+                        ctx.fillText(this.formatTime(ts / 1000), x, height - padding.bottom + 5);
+                    }
+
+                    // Draw filled area
+                    ctx.beginPath();
+                    ctx.moveTo(padding.left, padding.top + chartHeight);
+                    points.forEach((p, idx) => {
+                        const x = padding.left + ((p.ts - minTs) / (maxTs - minTs || 1)) * chartWidth;
+                        const y = padding.top + (1 - (p.value - minVal) / valRange) * chartHeight;
+                        if (idx === 0) {
+                            ctx.lineTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+                    ctx.closePath();
+                    ctx.fillStyle = fillColor;
+                    ctx.fill();
+
+                    // Draw line
+                    ctx.beginPath();
+                    points.forEach((p, idx) => {
+                        const x = padding.left + ((p.ts - minTs) / (maxTs - minTs || 1)) * chartWidth;
+                        const y = padding.top + (1 - (p.value - minVal) / valRange) * chartHeight;
+                        if (idx === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.strokeStyle = lineColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+            }
+
+            formatResourceValue(key, value) {
+                // Format based on the metric type
+                if (key.toLowerCase().includes('memory') || key.toLowerCase().includes('bytes')) {
+                    // Memory in MB (Bazel reports in MB)
+                    if (value >= 1024) {
+                        return (value / 1024).toFixed(2) + ' GB';
+                    }
+                    return value.toFixed(2) + ' MB';
+                }
+                if (key.toLowerCase().includes('cpu')) {
+                    return value.toFixed(1) + '%';
+                }
+                // Default formatting
+                if (value >= 1000000) {
+                    return (value / 1000000).toFixed(2) + 'M';
+                }
+                if (value >= 1000) {
+                    return (value / 1000).toFixed(2) + 'K';
+                }
+                return value.toFixed(2);
+            }
+
+            formatTime(ms) {
+                if (ms >= 1000) return (ms / 1000).toFixed(2) + 's';
+                return ms.toFixed(1) + 'ms';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            isDarkMode() {
+                return document.documentElement.getAttribute('data-theme') === 'dark';
+            }
+
+            getFrameColor(frame, isHovered, isSelected, isMatch) {
+                const maxSelfTime = Math.max(...this.frames.map(f => f.selfTime));
+                const intensity = frame.selfTime / maxSelfTime;
+
+                const isDark = this.isDarkMode();
+                const isStarlark = frame.category === 'starlark';
+
+                // Search match highlight
+                if (isMatch && this.searchTerm) return isDark ? 'rgb(251, 191, 36)' : 'rgb(255, 235, 59)';
+
+                let baseColor, darkColor;
+
+                if (isStarlark) {
+                    // Purple/violet for Starlark events
+                    // Light mode: light purple to dark purple
+                    // Dark mode: dark muted purple to brighter purple
+                    baseColor = isDark ? { r: 45, g: 35, b: 60 } : { r: 220, g: 200, b: 235 };
+                    darkColor = isDark ? { r: 156, g: 100, b: 180 } : { r: 106, g: 50, b: 150 };
+                } else {
+                    // Green for build events
+                    // Light mode: light green to dark green
+                    // Dark mode: dark muted green to brighter green
+                    baseColor = isDark ? { r: 30, g: 60, b: 35 } : { r: 200, g: 235, b: 200 };
+                    darkColor = isDark ? { r: 76, g: 175, b: 80 } : { r: 46, g: 125, b: 50 };
+                }
+
+                let r = Math.round(baseColor.r + (darkColor.r - baseColor.r) * intensity);
+                let g = Math.round(baseColor.g + (darkColor.g - baseColor.g) * intensity);
+                let b = Math.round(baseColor.b + (darkColor.b - baseColor.b) * intensity);
+
+                if (isHovered) {
+                    if (isDark) {
+                        r = Math.min(255, r + 20);
+                        g = Math.min(255, g + 20);
+                        b = Math.min(255, b + 20);
+                    } else {
+                        r = Math.max(0, r - 15);
+                        g = Math.max(0, g - 15);
+                        b = Math.max(0, b - 15);
+                    }
+                }
+
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            render() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.width, this.height);
+
+                const timeRange = this.viewEnd - this.viewStart;
+                const marginWidth = this.threadMarginWidth;
+                const graphWidth = this.width - marginWidth;
+                const pixelsPerMs = graphWidth / timeRange;
+                const isDark = this.isDarkMode();
+
+                // Draw background grid that scrolls with content
+                this.drawGrid(ctx, isDark, marginWidth);
+
+                // Draw each thread's swim lane
+                this.threads.forEach((thread, threadIndex) => {
+                    const threadY = thread.y - this.scrollY;
+                    const threadHeight = thread.height;
+
+                    // Skip if thread is not visible
+                    if (threadY + threadHeight < 0 || threadY > this.height) return;
+
+                    // Draw gradient fade background
+                    this.drawThreadBackground(ctx, thread, threadY, threadHeight, isDark);
+
+                    // Draw vertical thread label
+                    this.drawThreadLabel(ctx, thread, threadY, threadHeight, isDark);
+
+                    // Draw frames for this thread
+                    thread.frames.forEach(frame => {
+                        if (frame.end < this.viewStart || frame.start > this.viewEnd) return;
+
+                        let x = marginWidth + (frame.start - this.viewStart) * pixelsPerMs;
+                        let w = frame.duration * pixelsPerMs;
+                        const y = threadY + frame.depth * this.rowHeight;
+                        const h = this.rowHeight - this.padding;
+
+                        // Clip frame to margin boundary
+                        if (x < marginWidth) {
+                            w -= (marginWidth - x);
+                            x = marginWidth;
+                        }
+
+                        // Store render position for hit testing
+                        frame.renderX = x;
+                        frame.renderY = y;
+                        frame.renderW = w;
+
+                        if (w < 1 || y + h < 0 || y > this.height) return;
+
+                        const isHovered = frame === this.hoveredFrame;
+                        const isSelected = frame === this.selectedFrame;
+                        const isMatch = this.searchMatches.includes(frame);
+
+                        // Frame background
+                        ctx.fillStyle = this.getFrameColor(frame, isHovered, isSelected, isMatch);
+                        ctx.beginPath();
+                        ctx.roundRect(x, y, w, h, 3);
+                        ctx.fill();
+
+                        // Border for selected
+                        if (isSelected) {
+                            ctx.strokeStyle = isDark ? '#66BB6A' : '#2E7D32';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+
+                        // Text
+                        if (w > 40) {
+                            ctx.fillStyle = isDark ? '#E5E5E5' : '#212121';
+                            ctx.font = "500 11px 'Nunito', sans-serif";
+                            ctx.textBaseline = 'middle';
+
+                            const text = frame.name;
+                            const maxWidth = w - 8;
+                            let displayText = text;
+
+                            if (ctx.measureText(text).width > maxWidth) {
+                                while (ctx.measureText(displayText + '...').width > maxWidth && displayText.length > 0) {
+                                    displayText = displayText.slice(0, -1);
+                                }
+                                displayText += '...';
+                            }
+
+                            ctx.fillText(displayText, x + 4, y + h / 2);
+                        }
+                    });
+                });
+
+                this.renderTimeAxis();
+            }
+
+            drawGrid(ctx, isDark, marginWidth) {
+                const gridSize = 40;
+                const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+
+                ctx.strokeStyle = gridColor;
+                ctx.lineWidth = 1;
+
+                // Draw horizontal lines at thread boundaries
+                this.threads.forEach(thread => {
+                    const y = thread.y - this.scrollY;
+                    if (y >= -gridSize && y <= this.height + gridSize) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, Math.round(y) + 0.5);
+                        ctx.lineTo(this.width, Math.round(y) + 0.5);
+                        ctx.stroke();
+                    }
+                    // Also draw line at bottom of thread
+                    const bottomY = y + thread.height;
+                    if (bottomY >= -gridSize && bottomY <= this.height + gridSize) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, Math.round(bottomY) + 0.5);
+                        ctx.lineTo(this.width, Math.round(bottomY) + 0.5);
+                        ctx.stroke();
+                    }
+                });
+
+                // Draw vertical lines every 40px
+                for (let x = marginWidth; x < this.width; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(x) + 0.5, 0);
+                    ctx.lineTo(Math.round(x) + 0.5, this.height);
+                    ctx.stroke();
+                }
+            }
+
+            drawThreadBackground(ctx, thread, y, height, isDark) {
+                // Zebra striping - alternating backgrounds
+                const isEven = thread.index % 2 === 0;
+
+                if (!isEven) {
+                    // Only fill odd rows with a subtle background
+                    ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)';
+                    ctx.fillRect(0, y, this.width, height);
+                }
+            }
+
+            drawThreadTimeline(ctx, thread, y, height, isDark, pixelsPerMs) {
+                const marginWidth = this.threadMarginWidth;
+                const timelineX = 4;
+                const timelineWidth = marginWidth - 50;
+                const timelineY = y + height - 8;
+                const timelineHeight = 4;
+
+                // Background track
+                ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                ctx.beginPath();
+                ctx.roundRect(timelineX, timelineY, timelineWidth, timelineHeight, 2);
+                ctx.fill();
+
+                // Calculate thread's time span relative to total time
+                if (thread.frames.length === 0) return;
+
+                const threadStart = Math.min(...thread.frames.map(f => f.start));
+                const threadEnd = Math.max(...thread.frames.map(f => f.end));
+
+                // Map to timeline bar
+                const startRatio = threadStart / this.totalTime;
+                const endRatio = threadEnd / this.totalTime;
+                const barX = timelineX + startRatio * timelineWidth;
+                const barWidth = Math.max(2, (endRatio - startRatio) * timelineWidth);
+
+                // Activity bar with thread color
+                const hue = (thread.index * 47 + 120) % 360;
+                ctx.fillStyle = isDark
+                    ? `hsl(${hue}, 60%, 50%)`
+                    : `hsl(${hue}, 70%, 45%)`;
+                ctx.beginPath();
+                ctx.roundRect(barX, timelineY, barWidth, timelineHeight, 2);
+                ctx.fill();
+            }
+
+            drawThreadLabel(ctx, thread, y, height, isDark) {
+                // Thread name (from thread_name metadata) or fallback to tid
+                const threadName = this.threadNames[thread.tid] || `Thread ${thread.tid}`;
+                const marginWidth = this.threadMarginWidth;
+
+                ctx.save();
+
+                // Rotate text vertically
+                ctx.translate(marginWidth / 2, y + height / 2);
+                ctx.rotate(-Math.PI / 2);
+
+                // Thread name
+                ctx.fillStyle = isDark ? '#B0B0B0' : '#555';
+                ctx.font = "600 10px 'Nunito', sans-serif";
+                ctx.textBaseline = 'middle';
+                ctx.textAlign = 'center';
+
+                // Truncate long names to fit height
+                const maxWidth = height - 20;
+                let displayName = threadName;
+                if (ctx.measureText(displayName).width > maxWidth) {
+                    while (ctx.measureText(displayName + '…').width > maxWidth && displayName.length > 0) {
+                        displayName = displayName.slice(0, -1);
+                    }
+                    displayName += '…';
+                }
+
+                // Draw thread name and tid
+                const label = `${displayName} (${thread.tid})`;
+                let displayLabel = label;
+                if (ctx.measureText(displayLabel).width > maxWidth) {
+                    // If combined is too long, just show name
+                    displayLabel = displayName;
+                }
+                ctx.fillText(displayLabel, 0, 0);
+
+                ctx.restore();
+            }
+
+            renderTimeAxis() {
+                const ctx = this.axisCtx;
+                ctx.clearRect(0, 0, this.axisWidth, this.axisHeight);
+
+                const marginWidth = this.threadMarginWidth || 24;
+                const graphWidth = this.axisWidth - marginWidth;
+                const timeRange = this.viewEnd - this.viewStart;
+                const pixelsPerMs = graphWidth / timeRange;
+
+                const targetTicks = Math.floor(graphWidth / 100);
+                const rawInterval = timeRange / targetTicks;
+                const magnitude = Math.pow(10, Math.floor(Math.log10(rawInterval)));
+                let interval = magnitude;
+                if (rawInterval / magnitude > 5) interval = magnitude * 10;
+                else if (rawInterval / magnitude > 2) interval = magnitude * 5;
+                else if (rawInterval / magnitude > 1) interval = magnitude * 2;
+
+                const isDark = this.isDarkMode();
+                ctx.fillStyle = isDark ? '#A3A3A3' : '#757575';
+                ctx.font = "11px 'SF Mono', 'Roboto Mono', monospace";
+                ctx.textBaseline = 'top';
+
+                const firstTick = Math.ceil(this.viewStart / interval) * interval;
+                for (let t = firstTick; t <= this.viewEnd; t += interval) {
+                    const x = marginWidth + (t - this.viewStart) * pixelsPerMs;
+
+                    ctx.fillStyle = isDark ? '#444444' : '#E0E0E0';
+                    ctx.fillRect(x, 0, 1, 6);
+
+                    ctx.fillStyle = isDark ? '#A3A3A3' : '#757575';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.formatTime(t), x, 10);
+                }
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            window.flameGraph = new FlameGraph();
+        });
+    </script>
+</body>
+</html>
