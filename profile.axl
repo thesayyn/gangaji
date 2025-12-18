@@ -73,6 +73,7 @@ def _profile_impl(ctx):
     """Run Bazel with profiling and analyze with gangaji."""
     out = ctx.std.io.stdout
     err = ctx.std.io.stderr
+    is_tty = out.is_tty
 
     # Get version from extension
     version = GANGAJI_VERSION
@@ -87,6 +88,8 @@ def _profile_impl(ctx):
 
     # Build the bazel arguments - flags before targets
     flags = ["--profile", profile_path, "--generate_json_trace_profile"] + extra_args
+    if is_tty:
+        flags.append("--isatty")
 
     # If clean flag is set, use a temporary output_base
     output_base = None
