@@ -1,7 +1,7 @@
 "Profile Bazel builds with gangaji"
 
 # Extension version - updated during release
-GANGAJI_VERSION = "v0.0.1"
+GANGAJI_VERSION = "v0.0.0"
 
 def _get_platform(ctx):
     """Determine the current platform for binary download."""
@@ -83,22 +83,57 @@ def _profile_impl(ctx):
     # Get targets from args (default to //...)
     targets = list(ctx.args.targets) if ctx.args.targets else ["//..."]
     extra_args = list(ctx.args.extra_args) if ctx.args.extra_args else []
+    clean = ctx.args.clean
 
     # Build the bazel arguments - flags before targets
-    all_args = ["--profile", profile_path, "--generate_json_trace_profile"] + extra_args
+    flags = ["--profile", profile_path, "--generate_json_trace_profile"] + extra_args
 
-    out.write("Running: bazel build " + " ".join(all_args) + "\n\n")
+    # If clean flag is set, use a temporary output_base
+    output_base = None
+    startup_flags = []
+    if clean:
+        # Hash the project directory to create a unique output_base per project
+        project_dir = ctx.std.env.root_dir()
+        project_hash = str(hash(project_dir))
+        output_base = ctx.std.env.temp_dir() + "/gangaji-clean-build-" + project_hash
+        startup_flags = ["--output_base", output_base]
+        # Clean up any existing output_base before starting
+        if ctx.std.fs.exists(output_base):
+            out.write("Cleaning up existing output_base: " + output_base + "\n")
+            # Bazel creates files with restricted permissions, fix them before deletion
+            ctx.std.process.command("chmod").args(["-R", "u+rwx", output_base]).spawn().wait()
+            ctx.std.fs.remove_dir_all(output_base)
+        # Remove bazel-* symlinks that point to old output_base
+        for entry in ctx.std.fs.read_dir(project_dir):
+            symlink_path = entry.path
+            name = symlink_path.split("/")[-1]
+            if name.startswith("bazel-"):
+                metadata = ctx.std.fs.symlink_metadata(symlink_path)
+                if metadata and metadata.is_symlink:
+                    out.write("Removing stale symlink: " + symlink_path + "\n")
+                    ctx.std.fs.remove_file(symlink_path)
+        out.write("Using clean build with output_base: " + output_base + "\n")
+
+    out.write("Running: bazel build " + " ".join([str(a) for a in flags]) + "\n\n")
 
     # Run bazel with profiling
     build = ctx.bazel.build(
-        flags = all_args,
+        startup_flags = startup_flags,
+        flags = flags,
         *targets
     )
     result = build.wait()
 
-    if result != 0:
-        err.write("\nBazel command failed with exit code " + str(result) + "\n")
-        # Continue anyway to analyze partial profile if it exists
+    # Clean up temporary output_base if using clean build
+    if output_base and ctx.std.fs.exists(output_base):
+        out.write("Cleaning up output_base: " + output_base + "\n")
+        # Bazel creates files with restricted permissions, fix them before deletion
+        ctx.std.process.command("chmod").args(["-R", "u+rwx", output_base]).spawn().wait()
+        ctx.std.fs.remove_dir_all(output_base)
+
+    if not result.success:
+        err.write("\nBazel command failed with exit code " + str(result.code) + "\n")
+        return 1
 
     # Check if profile was generated
     if not ctx.std.fs.exists(profile_path):
@@ -113,14 +148,16 @@ def _profile_impl(ctx):
     out.write("Opening profile with gangaji...\n\n")
 
     # Run gangaji on the profile
-    exit_code = ctx.std.process.command(gangaji_bin, profile_path).status()
+    child = ctx.std.process.command(gangaji_bin).arg("--profile=" + profile_path).spawn()
+    code = child.wait()
 
-    return exit_code
+    return code
 
 profile = task(
     implementation = _profile_impl,
     args = {
         "targets": args.positional(),
+        "clean": args.boolean(),
         "extra_args": args.trailing_var_args(),
     },
 )
