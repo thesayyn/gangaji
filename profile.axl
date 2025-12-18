@@ -1,7 +1,18 @@
 "Profile Bazel builds with gangaji"
 
-# Extension version - updated during release
-GANGAJI_VERSION = "v0.0.0"
+# Extension version - substituted by git archive
+GANGAJI_VERSION = "$Format:%(describe:tags=true,always)$"
+
+def _is_unstamped(version):
+    """Check if version is unstamped (still contains the git format placeholder)."""
+    return version.startswith("$Format:") or version == ""
+
+def _get_latest_version(ctx):
+    """Fetch the latest release version from GitHub."""
+    url = "https://api.github.com/repos/thesayyn/gangaji/releases/latest"
+    response = ctx.http().get(url = url).block()
+    data = json.decode(response.body)
+    return data["tag_name"]
 
 def _get_platform(ctx):
     """Determine the current platform for binary download."""
@@ -75,8 +86,11 @@ def _profile_impl(ctx):
     err = ctx.std.io.stderr
     is_tty = out.is_tty
 
-    # Get version from extension
+    # Get version from extension, or fetch latest if unstamped
     version = GANGAJI_VERSION
+    if _is_unstamped(version):
+        out.write("Version unstamped, fetching latest release...\n")
+        version = _get_latest_version(ctx)
 
     # Determine profile output path
     profile_path = ctx.std.env.current_dir() + "/bazel-profile.json.gz"
@@ -116,8 +130,6 @@ def _profile_impl(ctx):
                     out.write("Removing stale symlink: " + symlink_path + "\n")
                     ctx.std.fs.remove_file(symlink_path)
         out.write("Using clean build with output_base: " + output_base + "\n")
-
-    out.write("Running: bazel build " + " ".join([str(a) for a in flags]) + "\n\n")
 
     # Run bazel with profiling
     build = ctx.bazel.build(
